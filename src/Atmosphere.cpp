@@ -15,8 +15,6 @@ AtmosphereModel::AtmosphereModel(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<
     , _options(options)
 {
     compileSettings = vsg::ShaderCompileSettings::create();
-    runtimeSettings = vsg::Value<atmosphere::RuntimeSettings>::create(RuntimeSettings{});
-    runtimeSettings->properties.dataVariance = vsg::DYNAMIC_DATA;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -33,6 +31,10 @@ void AtmosphereModel::initialize(int scatteringOrders)
 
     assignComputeConstants();
     assignRenderConstants();
+
+    RuntimeSettings settings{vsg::vec4(convertSpectrumToLinearSrgb(3.0), 5e-6f), {std::tan(sunAngularRadius), std::cos(sunAngularRadius)}};
+    runtimeSettings = vsg::Value<atmosphere::RuntimeSettings>::create(settings);
+    runtimeSettings->properties.dataVariance = vsg::DYNAMIC_DATA;
 
     auto memoryBarrier = vsg::MemoryBarrier::create();
     memoryBarrier->srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -542,6 +544,17 @@ vsg::ref_ptr<vsg::ShaderSet> AtmosphereModel::phongShaderSet()
     return shaderSet;
 }
 
+void AtmosphereModel::setSunAngle(double radians)
+{
+    sunDirection = {0.0, std::sin(radians + vsg::PI), std::cos(radians + vsg::PI)};
+}
+
+void AtmosphereModel::setExposure(double value)
+{
+    runtimeSettings->value().whitePointExp.a = static_cast<float>(value * 1e-6);
+    runtimeSettings->dirty();
+}
+
 vsg::ref_ptr<vsg::Node> AtmosphereModel::createSky()
 {
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", "shaders/scattering/sky_vs.glsl", _options);
@@ -904,10 +917,10 @@ void AtmosphereModel::assignComputeConstants()
         {16, vsg::intValue::create(irradianceWidth)},
         {17, vsg::intValue::create(irradianceHeight)},
 
-        {36, vsg::floatValue::create(static_cast<float>(sunAngularRadius))},
+        {36, vsg::floatValue::create(sunAngularRadius)},
         {37, vsg::floatValue::create(static_cast<float>(bottomRadius / lengthUnitInMeters))},
         {38, vsg::floatValue::create(static_cast<float>(topRadius / lengthUnitInMeters))},
-        {39, vsg::floatValue::create(static_cast<float>(miePhaseFunction_g))},
+        {39, vsg::floatValue::create(miePhaseFunction_g)},
         {40, vsg::floatValue::create(static_cast<float>(std::cos(maxSunZenithAngle)))}
     };
 }
@@ -966,10 +979,10 @@ void AtmosphereModel::assignRenderConstants()
         {34, vsg::floatValue::create(ground_albedo.y)},
         {35, vsg::floatValue::create(ground_albedo.z)},
 
-        {36, vsg::floatValue::create(static_cast<float>(sunAngularRadius))},
+        {36, vsg::floatValue::create(sunAngularRadius)},
         {37, vsg::floatValue::create(static_cast<float>(bottomRadius / lengthUnitInMeters))},
         {38, vsg::floatValue::create(static_cast<float>(topRadius / lengthUnitInMeters))},
-        {39, vsg::floatValue::create(static_cast<float>(miePhaseFunction_g))},
+        {39, vsg::floatValue::create(miePhaseFunction_g)},
         {40, vsg::floatValue::create(static_cast<float>(std::cos(maxSunZenithAngle)))},
 
         {41, vsg::floatValue::create(SKY_SPECTRAL_RADIANCE_TO_LUMINANCE.x)},
@@ -1046,7 +1059,7 @@ vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> wi
     constexpr double kMieAngstromAlpha = 0.0;
     constexpr double kMieAngstromBeta = 5.328e-3;
     constexpr double kMieSingleScatteringAlbedo = 0.9;
-    constexpr double kMiePhaseFunctionG = 0.8;
+    constexpr float kMiePhaseFunctionG = 0.8f;
     constexpr double kGroundAlbedo = 0.1;
     const double max_sun_zenith_angle = 120.0 / 180.0 * vsg::PI;
 
@@ -1109,9 +1122,6 @@ vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> wi
     model->groundAlbedo = ground_albedo;
     model->maxSunZenithAngle = max_sun_zenith_angle;
     model->lengthUnitInMeters = 1000.0;
-
-    RuntimeSettings settings{vsg::vec4(model->convertSpectrumToLinearSrgb(3.0), 5e-6f), {std::tan(0.01935f), std::cos(0.01935f)}};
-    model->runtimeSettings->set(settings);
 
     model->initialize(4);
 

@@ -80,7 +80,7 @@ public:
     /// The sun's angular radius, in radians. Warning: the implementation uses
     /// approximations that are valid only if this value is smaller than 0.1.
     /// </summary>
-    double sunAngularRadius;
+    float sunAngularRadius;
 
     /// <summary>
     /// The distance between the planet center and the bottom of the atmosphere in m.
@@ -140,7 +140,7 @@ public:
     /// <summary>
     /// The asymetry parameter for the Cornette-Shanks phase function for the aerosols.
     /// </summary>
-    double miePhaseFunction_g;
+    float miePhaseFunction_g;
 
     /// <summary>
     /// The density profile of air molecules that absorb light (e.g. ozone), i.e.
@@ -248,6 +248,9 @@ public:
     vsg::ref_ptr<vsg::Node> createSkyView(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Camera> camera);
     vsg::ref_ptr<vsg::Node> createSkyBox();
     vsg::ref_ptr<vsg::ShaderSet> phongShaderSet();
+
+    void setSunAngle(double radians);
+    void setExposure(double value);
 
 private:
     void generateTextures();

@@ -34,7 +34,7 @@ int main(int argc, char** argv)
         arguments.read(options);
 
         auto windowTraits = vsg::WindowTraits::create();
-        windowTraits->windowTitle = "vsgviewer";
+        windowTraits->windowTitle = "vsgatmosphere";
         windowTraits->debugLayer = arguments.read({"--debug", "-d"});
         windowTraits->apiDumpLayer = arguments.read({"--api", "-a"});
         windowTraits->synchronizationLayer = arguments.read("--sync");
@@ -94,6 +94,9 @@ int main(int argc, char** argv)
         auto ellipsoidModel = vsg::EllipsoidModel::create(vsg::WGS_84_RADIUS_EQUATOR, vsg::WGS_84_RADIUS_EQUATOR);
 
         auto model = atmosphere::createAtmosphereModel(window, ellipsoidModel, options);
+
+        model->setExposure(exposure);
+        model->setSunAngle(sunAngle);
 
         options->shaderSets["phong"] = model->phongShaderSet();
 
