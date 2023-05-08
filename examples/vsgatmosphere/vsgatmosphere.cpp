@@ -69,7 +69,8 @@ int main(int argc, char** argv)
         //auto horizonMountainHeight = arguments.value(0.0, "--hmh");
 
         auto sunAngle = vsg::radians(arguments.value(0.0f, "--angle"));
-        auto exposure = arguments.value(1.0f, "--exposure");
+        auto skyExposure = arguments.value(1.0f, "--sky");
+        auto modelExposure = arguments.value(1.0f, "--model");
 
         if (arguments.read("--rgb")) options->mapRGBtoRGBAHint = false;
 
@@ -93,12 +94,48 @@ int main(int argc, char** argv)
 
         auto ellipsoidModel = vsg::EllipsoidModel::create(vsg::WGS_84_RADIUS_EQUATOR, vsg::WGS_84_RADIUS_EQUATOR);
 
-        auto model = atmosphere::createAtmosphereModel(window, ellipsoidModel, options);
+        viewer->addWindow(window);
 
-        model->setExposure(exposure);
-        model->setSunAngle(sunAngle);
+        double nearFarRatio = 0.0001;
+        auto cameraPos = vsg::vec4Value::create();
+        cameraPos->properties.dataVariance = vsg::DYNAMIC_DATA;
 
-        options->shaderSets["phong"] = model->phongShaderSet();
+        auto modelView = vsg::LookAt::create();
+        modelView->center = ellipsoidModel->convertLatLongAltitudeToECEF({51.50151088842245, -0.14181489107549874, 0.0});
+        modelView->up = vsg::dvec3(0.0, 1.0, 0.0);
+        modelView->eye = vsg::dvec3(40000000.0, 0.0, 0.0);
+        //auto perspective = vsg::EllipsoidPerspective::create(modelView, ellipsoidModel, 30.0, static_cast<double>(window->extent2D().width) / static_cast<double>(window->extent2D().height), nearFarRatio, horizonMountainHeight);
+        auto perspective = vsg::Perspective::create(60.0, static_cast<double>(window->extent2D().width) / static_cast<double>(window->extent2D().height), nearFarRatio, ellipsoidModel->radiusEquator() * 10.0);
+
+        auto camera = vsg::Camera::create(perspective, modelView, vsg::ViewportState::create(window->extent2D()));
+
+        // create the sky camera
+        auto inversePerojection = atmosphere::InverseProjection::create(camera->projectionMatrix);
+        auto inverseView = atmosphere::InverseView::create(camera->viewMatrix);
+        auto skyCamera = vsg::Camera::create(inversePerojection, inverseView, vsg::ViewportState::create(window->extent2D()));
+
+        auto model = atmosphere::createAtmosphereModel(window, atmosphere::AtmosphereModelSettings::create(ellipsoidModel), options);
+
+        auto mainViewDependent = atmosphere::AtmosphereLighting::create(modelView);
+        model->viewDescriptorSetLayout = mainViewDependent->descriptorSetLayout;
+        mainViewDependent->exposure = modelExposure;
+        auto skyViewDependent = atmosphere::AtmosphereLighting::create(inverseView);
+        skyViewDependent->exposure = skyExposure;
+        skyViewDependent->transform = false;
+
+        auto atmoshpere = model->getData();
+        mainViewDependent->assignData(atmoshpere);
+        skyViewDependent->assignData(atmoshpere);
+
+        atmoshpere->setSunAngle(sunAngle);
+
+        options->shaderSets["phong"] = atmoshpere->phongShaderSet;
+
+        auto builder = vsg::Builder::create();
+        builder->options = options;
+        auto transfrom = vsg::AbsoluteTransform::create(vsg::translate(0.0, 0.0, -3.0));
+        transfrom->addChild(builder->createSphere());
+        vsg_scene->addChild(transfrom);
 
         auto databaseSettings = vsg::createOpenStreetMapSettings(options);
         databaseSettings->lighting = true;
@@ -110,32 +147,6 @@ int main(int argc, char** argv)
 
         vsg_scene->addChild(earth);
 
-        viewer->addWindow(window);
-
-        double nearFarRatio = 0.0001;
-
-        auto cameraPos = vsg::vec4Value::create();
-        cameraPos->properties.dataVariance = vsg::DYNAMIC_DATA;
-
-        auto builder = vsg::Builder::create();
-        builder->options = options;
-
-        auto transfrom = vsg::AbsoluteTransform::create(vsg::translate(0.0, 0.0, -3.0));
-        transfrom->addChild(builder->createSphere());
-        vsg_scene->addChild(transfrom);
-
-        auto modelView = vsg::LookAt::create();
-        modelView->center = ellipsoidModel->convertLatLongAltitudeToECEF({51.50151088842245, -0.14181489107549874, 0.0});
-        modelView->up = vsg::dvec3(0.0, 1.0, 0.0);
-        modelView->eye = vsg::dvec3(40000000.0, 0.0, 0.0);
-        //auto perspective = vsg::EllipsoidPerspective::create(modelView, ellipsoidModel, 30.0, static_cast<double>(window->extent2D().width) / static_cast<double>(window->extent2D().height), nearFarRatio, horizonMountainHeight);
-        auto perspective = vsg::Perspective::create(60.0, static_cast<double>(window->extent2D().width) / static_cast<double>(window->extent2D().height), nearFarRatio, ellipsoidModel->radiusEquator() * 10.0);
-
-        auto camera = vsg::Camera::create(perspective, modelView, vsg::ViewportState::create(window->extent2D()));
-
-        auto viewDependent = atmosphere::AtmosphereLighting::create(model, modelView);
-        model->viewDescriptorSetLayout = viewDependent->descriptorSetLayout;
-
         // add close handler to respond the close window button and pressing escape
         viewer->addEventHandler(vsg::CloseHandler::create(viewer));
 
@@ -145,22 +156,24 @@ int main(int argc, char** argv)
 
         viewer->addEventHandler(trackball);
 
-        auto compute_commandGraph = model->createCubeMapGraph(cameraPos);
+        auto compute_commandGraph = atmoshpere->createCubeMapGraph(window, cameraPos);
 
         // set up the render graph
         //auto renderGraph = vsg::createRenderGraphForView(window, camera, vsg_scene, VK_SUBPASS_CONTENTS_INLINE, false);
 
         auto mainView = vsg::View::create(camera);
         mainView->addChild(vsg_scene);
+        mainView->viewDependentState = mainViewDependent;
 
         // set up the render graph
         auto renderGraph = vsg::RenderGraph::create(window, mainView);
         renderGraph->contents = VK_SUBPASS_CONTENTS_INLINE;
 
-        renderGraph->addChild(model->createSkyView(window, camera));
-        renderGraph->setClearValues({{0.0f, 0.0f, 0.0f, 1.0f}});
+        auto skyView = vsg::View::create(skyCamera, atmoshpere->sky);
+        skyView->viewDependentState = skyViewDependent;
 
-        mainView->viewDependentState = viewDependent;
+        renderGraph->addChild(skyView);
+        renderGraph->setClearValues({{0.0f, 0.0f, 0.0f, 1.0f}});
 
         auto grahics_commandGraph = vsg::CommandGraph::create(window, renderGraph);
         viewer->assignRecordAndSubmitTaskAndPresentation({grahics_commandGraph, compute_commandGraph});

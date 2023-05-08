@@ -30,24 +30,18 @@ namespace atmosphere {
     class InverseView : public vsg::Inherit<vsg::ViewMatrix, InverseView>
     {
     public:
-        explicit InverseView(double s, vsg::ref_ptr<vsg::ViewMatrix> vm)
+        explicit InverseView(vsg::ref_ptr<vsg::ViewMatrix> vm)
             : viewMatrix(vm)
-            , scale(s)
         {
         }
 
         /// returns projectionMatrix->inverse()
         vsg::dmat4 transform() const override
         {
-            auto inverse = viewMatrix->inverse();
-            inverse(3,0) *= scale;
-            inverse(3,1) *= scale;
-            inverse(3,2) *= scale;
-            return inverse;
+            return viewMatrix->inverse();
         }
 
         vsg::ref_ptr<vsg::ViewMatrix> viewMatrix;
-        double scale;
     };
 
     class InverseTransform : public vsg::Inherit<vsg::Transform, InverseTransform>

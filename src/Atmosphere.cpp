@@ -7,8 +7,211 @@
 
 
 namespace atmosphere {
+
+void AtmosphereData::read(vsg::Input &input)
+{
+    input.read("transmittanceTexture", transmittanceTexture);
+    input.read("irradianceTexture", irradianceTexture);
+    input.read("scatteringTexture", scatteringTexture);
+    input.read("singleMieScatteringTexture", singleMieScatteringTexture);
+
+    input.read("settings", settings);
+}
+
+void AtmosphereData::write(vsg::Output &output) const
+{
+    output.write("transmittanceTexture", transmittanceTexture);
+    output.write("irradianceTexture", irradianceTexture);
+    output.write("scatteringTexture", scatteringTexture);
+    output.write("singleMieScatteringTexture", singleMieScatteringTexture);
+
+    output.write("settings", settings);
+}
+
+void AtmosphereData::setSunAngle(double radians)
+{
+    sunDirection = {0.0, std::sin(radians + vsg::PI), std::cos(radians + vsg::PI)};
+}
+
+AtmosphereModelSettings::AtmosphereModelSettings(vsg::ref_ptr<vsg::EllipsoidModel> model)
+    : ellipsoidModel(model)
+{
+}
+
+AtmosphereModelSettings::~AtmosphereModelSettings()
+{
+
+}
+
+void AtmosphereModelSettings::read(vsg::Input &input)
+{
+    input.read("numThreads", numThreads);
+
+    input.read("transmittanceWidth", transmittanceWidth);
+    input.read("transmittanceHeight", transmittanceHeight);
+
+    input.read("scaterringR", scaterringR);
+    input.read("scaterringMU", scaterringMU);
+    input.read("scaterringMU_S", scaterringMU_S);
+    input.read("scaterringNU", scaterringNU);
+
+    input.read("irradianceWidth", irradianceWidth);
+    input.read("irradianceHeight", irradianceHeight);
+
+    input.read("precomputedWavelenghts", precomputedWavelenghts);
+
+    input.read("transmittanceHeight", transmittanceHeight);
+
+    input.read("sunAngularRadius", sunAngularRadius);
+
+    input.read("rayleighDensityLayer", rayleighDensityLayer);
+    input.read("mieDensityLayer", mieDensityLayer);
+
+    input.read("absorptionDensityLayer0", absorptionDensityLayer0);
+    input.read("absorptionDensityLayer1", absorptionDensityLayer1);
+
+    input.read("miePhaseFunction_g", miePhaseFunction_g);
+
+    input.read("maxSunZenithAngle", maxSunZenithAngle);
+    input.read("lengthUnitInMeters", lengthUnitInMeters);
+
+    input.read("ellipsoidModel", ellipsoidModel);
+
+    input.read("kSolarIrradiance", kSolarIrradiance);
+    input.read("kOzoneCrossSection", kOzoneCrossSection);
+
+    input.read("kDobsonUnit", kDobsonUnit);
+    input.read("kMaxOzoneNumberDensity", kMaxOzoneNumberDensity);
+    input.read("kConstantSolarIrradiance", kConstantSolarIrradiance);
+
+    input.read("kAtmoshpereHeight", kAtmoshpereHeight);
+
+    input.read("kRayleigh", kRayleigh);
+    input.read("kRayleighScaleHeight", kRayleighScaleHeight);
+    input.read("kMieScaleHeight", kMieScaleHeight);
+    input.read("kMieAngstromAlpha", kMieAngstromAlpha);
+    input.read("kMieAngstromBeta", kMieAngstromBeta);
+    input.read("kMieSingleScatteringAlbedo", kMieSingleScatteringAlbedo);
+    input.read("kGroundAlbedo", kGroundAlbedo);
+
+    input.read("use_constant_solar_spectrum_", transmittanceHeight);
+    input.read("use_ozone", use_ozone);
+}
+
+void AtmosphereModelSettings::write(vsg::Output &output) const
+{
+    output.write("numThreads", numThreads);
+
+    output.write("transmittanceWidth", transmittanceWidth);
+    output.write("transmittanceHeight", transmittanceHeight);
+
+    output.write("scaterringR", scaterringR);
+    output.write("scaterringMU", scaterringMU);
+    output.write("scaterringMU_S", scaterringMU_S);
+    output.write("scaterringNU", scaterringNU);
+
+    output.write("irradianceWidth", irradianceWidth);
+    output.write("irradianceHeight", irradianceHeight);
+
+    output.write("precomputedWavelenghts", precomputedWavelenghts);
+
+    output.write("transmittanceHeight", transmittanceHeight);
+
+    output.write("sunAngularRadius", sunAngularRadius);
+
+    output.write("rayleighDensityLayer", rayleighDensityLayer);
+    output.write("mieDensityLayer", mieDensityLayer);
+
+    output.write("absorptionDensityLayer0", absorptionDensityLayer0);
+    output.write("absorptionDensityLayer1", absorptionDensityLayer1);
+
+    output.write("miePhaseFunction_g", miePhaseFunction_g);
+
+    output.write("maxSunZenithAngle", maxSunZenithAngle);
+    output.write("lengthUnitInMeters", lengthUnitInMeters);
+
+    output.write("ellipsoidModel", ellipsoidModel);
+
+    output.write("kSolarIrradiance", kSolarIrradiance);
+    output.write("kOzoneCrossSection", kOzoneCrossSection);
+
+    output.write("kDobsonUnit", kDobsonUnit);
+    output.write("kMaxOzoneNumberDensity", kMaxOzoneNumberDensity);
+    output.write("kConstantSolarIrradiance", kConstantSolarIrradiance);
+
+    output.write("kAtmoshpereHeight", kAtmoshpereHeight);
+
+    output.write("kRayleigh", kRayleigh);
+    output.write("kRayleighScaleHeight", kRayleighScaleHeight);
+    output.write("kMieScaleHeight", kMieScaleHeight);
+    output.write("kMieAngstromAlpha", kMieAngstromAlpha);
+    output.write("kMieAngstromBeta", kMieAngstromBeta);
+    output.write("kMieSingleScatteringAlbedo", kMieSingleScatteringAlbedo);
+    output.write("kGroundAlbedo", kGroundAlbedo);
+
+    output.write("use_constant_solar_spectrum_", transmittanceHeight);
+    output.write("use_ozone", use_ozone);
+}
+
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+AtmosphereModel::AtmosphereModel(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options)
+    : _device(device)
+    , _physicalDevice(physicalDevice)
+    , _options(options)
+{
+    compileSettings = vsg::ShaderCompileSettings::create();
+
+    constexpr int kLambdaMinN = static_cast<int>(kLambdaMin);
+    constexpr int kLambdaMaxN = static_cast<int>(kLambdaMax);
+
+    numThreads = settings->numThreads;
+
+    transmittanceWidth = settings->transmittanceWidth;
+    transmittanceHeight = settings->transmittanceHeight;
+
+    scaterringR = settings->scaterringR;
+    scaterringMU = settings->scaterringMU;
+    scaterringMU_S = settings->scaterringMU_S;
+    scaterringNU = settings->scaterringNU;
+
+    irradianceWidth = settings->irradianceWidth;
+    irradianceHeight = settings->irradianceHeight;
+
+    bottomRadius = settings->ellipsoidModel->radiusEquator();
+    topRadius = bottomRadius + settings->kAtmoshpereHeight;
+
+    for (int l = kLambdaMinN; l <= kLambdaMaxN; l += 10) {
+        double lambda = static_cast<double>(l) * 1e-3;  // micro-meters
+        double mie =
+                settings->kMieAngstromBeta / settings->kMieScaleHeight * pow(lambda, -settings->kMieAngstromAlpha);
+        waveLengths.push_back(l);
+        if (settings->use_constant_solar_spectrum_) {
+            solarIrradiance.push_back(settings->kConstantSolarIrradiance);
+        } else {
+            solarIrradiance.push_back(settings->kSolarIrradiance[(l - kLambdaMinN) / 10]);
+        }
+        rayleighScattering.push_back(settings->kRayleigh * pow(lambda, -4));
+        mieScattering.push_back(mie * settings->kMieSingleScatteringAlbedo);
+        mieExtinction.push_back(mie);
+        absorptionExtinction.push_back(settings->use_ozone ?
+                                            settings->kMaxOzoneNumberDensity * settings->kOzoneCrossSection[(l - kLambdaMinN) / 10] :
+                                        0.0);
+        groundAlbedo.push_back(settings->kGroundAlbedo);
+    }
+
+    sunAngularRadius = settings->sunAngularRadius;
+
+    rayleighDensityLayer = settings->rayleighDensityLayer;
+    mieDensityLayer = settings->mieDensityLayer;
+    miePhaseFunction_g = settings->miePhaseFunction_g;
+    absorptionDensityLayer0 = settings->absorptionDensityLayer0;
+    absorptionDensityLayer1 = settings->absorptionDensityLayer1;
+    maxSunZenithAngle = settings->maxSunZenithAngle;
+    lengthUnitInMeters = settings->lengthUnitInMeters;
+
+    precomputedWavelenghts = settings->precomputedWavelenghts;
+}
 AtmosphereModel::AtmosphereModel(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options)
     : _device(device)
     , _physicalDevice(physicalDevice)
@@ -31,10 +234,6 @@ void AtmosphereModel::initialize(int scatteringOrders)
 
     assignComputeConstants();
     assignRenderConstants();
-
-    RuntimeSettings settings{vsg::vec4(convertSpectrumToLinearSrgb(3.0), 5e-6f), {std::tan(sunAngularRadius), std::cos(sunAngularRadius)}};
-    runtimeSettings = vsg::Value<atmosphere::RuntimeSettings>::create(settings);
-    runtimeSettings->properties.dataVariance = vsg::DYNAMIC_DATA;
 
     auto memoryBarrier = vsg::MemoryBarrier::create();
     memoryBarrier->srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -270,17 +469,50 @@ vsg::vec3 AtmosphereModel::convertSpectrumToLinearSrgb(double c)
     return {static_cast<float>(r), static_cast<float>(g), static_cast<float>(b)};
 }
 
-vsg::ref_ptr<vsg::CommandGraph> AtmosphereModel::createCubeMapGraph(vsg::ref_ptr<vsg::vec4Value> camera)
+vsg::ref_ptr<AtmosphereData> AtmosphereModel::getData()
 {
-    auto computeShader = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", "shaders/scattering/reflection_map.glsl", _options);
-    if (!computeShader)
+    auto runtimeData = AtmosphereData::create();
+
+    runtimeData->transmittanceTexture = _transmittanceTexture;
+    runtimeData->irradianceTexture = _irradianceTexture;
+    runtimeData->scatteringTexture = _scatteringTexture;
+    runtimeData->singleMieScatteringTexture = _singleMieScatteringTexture;
+
+    runtimeData->reflectionMapShader = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", "shaders/scattering/reflection_map.glsl", _options);
+    if (!runtimeData->reflectionMapShader)
     {
         vsg::error("Could not find shaders.");
         return {};
     }
 
-    computeShader->module->hints = compileSettings;
-    computeShader->specializationConstants = _renderConstants;
+    runtimeData->phongShaderSet = createPhongShaderSet();
+    runtimeData->sky = createSky();
+
+    RuntimeSettings settings{vsg::vec4(convertSpectrumToLinearSrgb(3.0), 0.0f), {std::tan(sunAngularRadius), std::cos(sunAngularRadius)}};
+    runtimeData->settings = vsg::Value<atmosphere::RuntimeSettings>::create(settings);
+    runtimeData->settings->properties.dataVariance = vsg::DYNAMIC_DATA;
+
+    runtimeData->lengthUnitInMeters = lengthUnitInMeters;
+
+    return runtimeData;
+}
+
+void AtmosphereModel::mapData()
+{
+    mapData(_transmittanceTexture->imageView, transmittanceWidth, transmittanceHeight);
+    mapData(_irradianceTexture->imageView, irradianceWidth, irradianceHeight);
+
+    auto width = scatteringWidth();
+    auto height = scatteringHeight();
+    auto depth = scatteringDepth();
+    mapData(_scatteringTexture->imageView, width, height, depth);
+    mapData(_singleMieScatteringTexture->imageView, width, height, depth);
+}
+
+vsg::ref_ptr<vsg::CommandGraph> AtmosphereData::createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::vec4Value> camera)
+{
+    if(!reflectionMap)
+        reflectionMap = createCubemap(cubeSize);
 
     vsg::DescriptorSetLayoutBindings descriptorBindings{
         {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
@@ -296,24 +528,24 @@ vsg::ref_ptr<vsg::CommandGraph> AtmosphereModel::createCubeMapGraph(vsg::ref_ptr
         {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vsg::vec4)}
     };
 
-    auto settingsBuffer = vsg::DescriptorBuffer::create(runtimeSettings, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    auto transmittanceTexture = vsg::DescriptorImage::create(_transmittanceTexture, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto irradianceTexture = vsg::DescriptorImage::create(_irradianceTexture, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto scatteringTexture = vsg::DescriptorImage::create(_scatteringTexture, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto singleMieTexture = vsg::DescriptorImage::create(_singleMieScatteringTexture, 4, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    auto settingsBuffer = vsg::DescriptorBuffer::create(settings, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    auto transmittance = vsg::DescriptorImage::create(transmittanceTexture, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    auto irradiance = vsg::DescriptorImage::create(irradianceTexture, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    auto scattering = vsg::DescriptorImage::create(scatteringTexture, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    auto singleMie = vsg::DescriptorImage::create(singleMieScatteringTexture, 4, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
-    auto cubemap = vsg::DescriptorImage::create(_cubeMap, 5, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    auto cubemap = vsg::DescriptorImage::create(reflectionMap, 5, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, pushConstantRanges);
 
-    vsg::Descriptors descriptors{settingsBuffer, transmittanceTexture, irradianceTexture, scatteringTexture, singleMieTexture, cubemap};
+    vsg::Descriptors descriptors{settingsBuffer, transmittance, irradiance, scattering, singleMie, cubemap};
     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
     auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
 
     auto pushCamera = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, camera);
 
     // set up the compute pipeline
-    auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
+    auto pipeline = vsg::ComputePipeline::create(pipelineLayout, reflectionMapShader);
     auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
 
     auto preCopyBarrier = vsg::ImageMemoryBarrier::create();
@@ -323,7 +555,7 @@ vsg::ref_ptr<vsg::CommandGraph> AtmosphereModel::createCubeMapGraph(vsg::ref_ptr
     preCopyBarrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
     preCopyBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     preCopyBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    preCopyBarrier->image = _cubeMap->imageView->image;
+    preCopyBarrier->image = reflectionMap->imageView->image;
     preCopyBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     preCopyBarrier->subresourceRange.baseArrayLayer = 0;
     preCopyBarrier->subresourceRange.layerCount = 6;
@@ -339,7 +571,7 @@ vsg::ref_ptr<vsg::CommandGraph> AtmosphereModel::createCubeMapGraph(vsg::ref_ptr
     postCopyBarrier->newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     postCopyBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     postCopyBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    postCopyBarrier->image = _cubeMap->imageView->image;
+    postCopyBarrier->image = reflectionMap->imageView->image;
     postCopyBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     postCopyBarrier->subresourceRange.baseArrayLayer = 0;
     postCopyBarrier->subresourceRange.layerCount = 6;
@@ -348,8 +580,8 @@ vsg::ref_ptr<vsg::CommandGraph> AtmosphereModel::createCubeMapGraph(vsg::ref_ptr
 
     auto postCopyBarrierCmd = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, postCopyBarrier);
 
-    int computeQueueFamily = _physicalDevice->getQueueFamily(VK_QUEUE_COMPUTE_BIT);
-    auto compute_commandGraph = vsg::CommandGraph::create(_device, computeQueueFamily);
+    int computeQueueFamily = window->getOrCreatePhysicalDevice()->getQueueFamily(VK_QUEUE_COMPUTE_BIT);
+    auto compute_commandGraph = vsg::CommandGraph::create(window->getOrCreateDevice(), computeQueueFamily);
 
     compute_commandGraph->addChild(preCopyBarrierCmd);
     compute_commandGraph->addChild(bindPipeline);
@@ -362,140 +594,7 @@ vsg::ref_ptr<vsg::CommandGraph> AtmosphereModel::createCubeMapGraph(vsg::ref_ptr
     return compute_commandGraph;
 }
 
-vsg::ref_ptr<vsg::Node> AtmosphereModel::createSkyBox()
-{
-    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", "shaders/scattering/cubemap_vs.glsl", _options);
-    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", "shaders/scattering/cubemap_fs.glsl", _options);
-
-    if (!vertexShader || !fragmentShader)
-    {
-        vsg::error("Could not find shaders.");
-        return {};
-    }
-
-    const vsg::ShaderStages shaders{vertexShader, fragmentShader};
-
-    // set up graphics pipeline
-    vsg::DescriptorSetLayoutBindings descriptorBindings{
-        {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}
-    };
-    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-
-
-    vsg::PushConstantRanges pushConstantRanges{
-        {VK_SHADER_STAGE_VERTEX_BIT, 0, 128} // projection view, and model matrices, actual push constant calls automatically provided by the VSG's DispatchTraversal
-    };
-
-    vsg::VertexInputState::Bindings vertexBindingsDescriptions{
-        VkVertexInputBindingDescription{0, sizeof(vsg::vec3), VK_VERTEX_INPUT_RATE_VERTEX}};
-
-    vsg::VertexInputState::Attributes vertexAttributeDescriptions{
-        VkVertexInputAttributeDescription{0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}};
-
-    auto rasterState = vsg::RasterizationState::create();
-    rasterState->cullMode = VK_CULL_MODE_FRONT_BIT;
-
-    auto depthState = vsg::DepthStencilState::create();
-    depthState->depthTestEnable = VK_TRUE;
-    depthState->depthWriteEnable = VK_FALSE;
-    depthState->depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-
-    auto colorBlendState = vsg::ColorBlendState::create();
-    colorBlendState->attachments = vsg::ColorBlendState::ColorBlendAttachments{
-            {true, VK_BLEND_FACTOR_SRC_COLOR, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR, VK_BLEND_OP_ADD, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_SUBTRACT, VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT}};
-
-
-    vsg::GraphicsPipelineStates pipelineStates{
-        vsg::VertexInputState::create(vertexBindingsDescriptions, vertexAttributeDescriptions),
-        vsg::InputAssemblyState::create(),
-        rasterState,
-        vsg::MultisampleState::create(),
-        colorBlendState,
-        depthState};
-
-    auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, pushConstantRanges);
-    auto pipeline = vsg::GraphicsPipeline::create(pipelineLayout, shaders, pipelineStates);
-    auto bindGraphicsPipeline = vsg::BindGraphicsPipeline::create(pipeline);
-
-    auto root = vsg::Commands::create();
-    root->addChild(bindGraphicsPipeline);
-
-    auto texture = vsg::DescriptorImage::create(_cubeMap, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{texture});
-    auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, descriptorSet);
-    root->addChild(bindDescriptorSet);
-
-    auto vertices = vsg::vec3Array::create({// Back
-                                            {-1.0f, -1.0f, -1.0f},
-                                            {1.0f, -1.0f, -1.0f},
-                                            {-1.0f, 1.0f, -1.0f},
-                                            {1.0f, 1.0f, -1.0f},
-
-                                            // Front
-                                            {-1.0f, -1.0f, 1.0f},
-                                            {1.0f, -1.0f, 1.0f},
-                                            {-1.0f, 1.0f, 1.0f},
-                                            {1.0f, 1.0f, 1.0f},
-
-                                            // Left
-                                            {-1.0f, -1.0f, -1.0f},
-                                            {-1.0f, -1.0f, 1.0f},
-                                            {-1.0f, 1.0f, -1.0f},
-                                            {-1.0f, 1.0f, 1.0f},
-
-                                            // Right
-                                            {1.0f, -1.0f, -1.0f},
-                                            {1.0f, -1.0f, 1.0f},
-                                            {1.0f, 1.0f, -1.0f},
-                                            {1.0f, 1.0f, 1.0f},
-
-                                            // Bottom
-                                            {-1.0f, -1.0f, -1.0f},
-                                            {-1.0f, -1.0f, 1.0f},
-                                            {1.0f, -1.0f, -1.0f},
-                                            {1.0f, -1.0f, 1.0f},
-
-                                            // Top
-                                            {-1.0f, 1.0f, -1.0f},
-                                            {-1.0f, 1.0f, 1.0f},
-                                            {1.0f, 1.0f, -1.0f},
-                                            {1.0f, 1.0f, 1.0}});
-
-    auto indices = vsg::ushortArray::create({// Back
-                                             0, 2, 1,
-                                             1, 2, 3,
-
-                                             // Front
-                                             6, 4, 5,
-                                             7, 6, 5,
-
-                                             // Left
-                                             10, 8, 9,
-                                             11, 10, 9,
-
-                                             // Right
-                                             14, 13, 12,
-                                             15, 13, 14,
-
-                                             // Bottom
-                                             17, 16, 19,
-                                             19, 16, 18,
-
-                                             // Top
-                                             23, 20, 21,
-                                             22, 20, 23});
-
-    root->addChild(vsg::BindVertexBuffers::create(0, vsg::DataList{vertices}));
-    root->addChild(vsg::BindIndexBuffer::create(indices));
-    root->addChild(vsg::DrawIndexed::create(indices->size(), 1, 0, 0, 0));
-
-    auto xform = vsg::MatrixTransform::create(vsg::rotate(vsg::PI, 0.0, 1.0, 0.0));
-    xform->addChild(root);
-
-    return xform;
-}
-
-vsg::ref_ptr<vsg::ShaderSet> AtmosphereModel::phongShaderSet()
+vsg::ref_ptr<vsg::ShaderSet> AtmosphereModel::createPhongShaderSet()
 {
     vsg::info("Local phong_ShaderSet(",_options,")");
 
@@ -544,21 +643,16 @@ vsg::ref_ptr<vsg::ShaderSet> AtmosphereModel::phongShaderSet()
     return shaderSet;
 }
 
-void AtmosphereModel::setSunAngle(double radians)
-{
-    sunDirection = {0.0, std::sin(radians + vsg::PI), std::cos(radians + vsg::PI)};
-}
-
-void AtmosphereModel::setExposure(double value)
-{
-    runtimeSettings->value().whitePointExp.a = static_cast<float>(value * 1e-6);
-    runtimeSettings->dirty();
-}
-
 vsg::ref_ptr<vsg::Node> AtmosphereModel::createSky()
 {
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", "shaders/scattering/sky_vs.glsl", _options);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", "shaders/scattering/sky_fs.glsl", _options);
+    if (!vertexShader || !fragmentShader)
+    {
+        vsg::error("Could not find shaders.");
+        return {};
+    }
+
     const vsg::ShaderStages shaders{vertexShader, fragmentShader};
 
     fragmentShader->specializationConstants = _renderConstants;
@@ -591,9 +685,11 @@ vsg::ref_ptr<vsg::Node> AtmosphereModel::createSky()
     auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{dummy, viewDescriptorSetLayout}, pushConstantRanges);
     auto pipeline = vsg::GraphicsPipeline::create(pipelineLayout, shaders, pipelineStates);
     auto bindGraphicsPipeline = vsg::BindGraphicsPipeline::create(pipeline);
+    auto bindViewDescriptorSets = vsg::BindViewDescriptorSets::create(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1);
 
     auto root = vsg::StateGroup::create();
     root->add(bindGraphicsPipeline);
+    root->add(bindViewDescriptorSets);
 
     auto vid = vsg::VertexIndexDraw::create();
 
@@ -615,17 +711,14 @@ vsg::ref_ptr<vsg::Node> AtmosphereModel::createSky()
     return root;
 }
 
-vsg::ref_ptr<vsg::Node> AtmosphereModel::createSkyView(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Camera> camera)
+vsg::ref_ptr<vsg::View> AtmosphereData::createSkyView(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Camera> camera)
 {
     // create the sky camera
     auto inversePerojection = atmosphere::InverseProjection::create(camera->projectionMatrix);
-    auto inverseView = atmosphere::InverseView::create(1.0 / lengthUnitInMeters, camera->viewMatrix);
+    auto inverseView = atmosphere::InverseView::create(camera->viewMatrix);
     auto skyCamera = vsg::Camera::create(inversePerojection, inverseView, vsg::ViewportState::create(window->extent2D()));
 
-    auto sky = createSky();
-    auto view = vsg::View::create(skyCamera, sky);
-    view->viewDependentState = AtmosphereLighting::create(this);
-    return view;
+    return vsg::View::create(skyCamera, sky);
 }
 
 void AtmosphereModel::generateTextures()
@@ -646,8 +739,6 @@ void AtmosphereModel::generateTextures()
 
     _deltaScatteringDensityTexture = generate3D(width, height, depth);
     _deltaMultipleScatteringTexture = generate3D(width, height, depth);
-
-    _cubeMap = generateCubemap(cubeSize);
 }
 
 vsg::ref_ptr<vsg::ImageInfo> AtmosphereModel::generate2D(uint32_t width, uint32_t height, bool init)
@@ -694,7 +785,7 @@ vsg::ref_ptr<vsg::ImageInfo> AtmosphereModel::generate3D(uint32_t width, uint32_
 
 }
 
-vsg::ref_ptr<vsg::ImageInfo> AtmosphereModel::generateCubemap(uint32_t size)
+vsg::ref_ptr<vsg::ImageInfo> AtmosphereData::createCubemap(uint32_t size)
 {
     vsg::ref_ptr<vsg::Image> image = vsg::Image::create();
     image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
@@ -703,9 +794,6 @@ vsg::ref_ptr<vsg::ImageInfo> AtmosphereModel::generateCubemap(uint32_t size)
     image->extent = VkExtent3D{size, size, 1};
     image->imageType = VK_IMAGE_TYPE_2D;
     image->arrayLayers = 6;
-
-    //image->compile(_device);
-    //image->allocateAndBindMemory(_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     imageView->viewType = VK_IMAGE_VIEW_TYPE_CUBE;
@@ -1001,7 +1089,8 @@ vsg::ref_ptr<vsg::Data> AtmosphereModel::mapData(vsg::ref_ptr<vsg::ImageView> vi
     auto buffer = view->image->getDeviceMemory(_device->deviceID);
     auto offset = view->image->getMemoryOffset(_device->deviceID);
 
-    return vsg::MappedData<vsg::vec4Array2D>::create(buffer, offset, 0, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT}, width, height);
+    view->image->data = vsg::MappedData<vsg::vec4Array2D>::create(buffer, offset, 0, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT}, width, height);
+    return view->image->data;
 }
 
 vsg::ref_ptr<vsg::Data> AtmosphereModel::mapData(vsg::ref_ptr<vsg::ImageView> view, uint32_t width, uint32_t height, uint32_t depth)
@@ -1009,7 +1098,8 @@ vsg::ref_ptr<vsg::Data> AtmosphereModel::mapData(vsg::ref_ptr<vsg::ImageView> vi
     auto buffer = view->image->getDeviceMemory(_device->deviceID);
     auto offset = view->image->getMemoryOffset(_device->deviceID);
 
-    return vsg::MappedData<vsg::vec4Array3D>::create(buffer, offset, 0, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT}, width, height, depth);
+    view->image->data = vsg::MappedData<vsg::vec4Array3D>::create(buffer, offset, 0, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT}, width, height, depth);
+    return view->image->data;
 }
 
 vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::EllipsoidModel> eps, vsg::ref_ptr<vsg::Options> options)
@@ -1122,6 +1212,15 @@ vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> wi
     model->groundAlbedo = ground_albedo;
     model->maxSunZenithAngle = max_sun_zenith_angle;
     model->lengthUnitInMeters = 1000.0;
+
+    model->initialize(4);
+
+    return model;
+}
+
+vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options)
+{
+    auto model = atmosphere::AtmosphereModel::create(settings, window->getOrCreateDevice(), window->getOrCreatePhysicalDevice(), options);
 
     model->initialize(4);
 
