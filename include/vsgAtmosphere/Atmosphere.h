@@ -59,6 +59,7 @@ class AtmosphereModelSettings : public vsg::Inherit<vsg::Object, AtmosphereModel
 {
 public:
     AtmosphereModelSettings(vsg::ref_ptr<vsg::EllipsoidModel> model);
+    AtmosphereModelSettings();
     virtual ~AtmosphereModelSettings();
 
     void read(vsg::Input& input) override;
@@ -165,6 +166,9 @@ struct RuntimeSettings
 class AtmosphereData : public vsg::Inherit<vsg::Object, AtmosphereData>
 {
 public:
+    AtmosphereData();
+    virtual ~AtmosphereData();
+
     void read(vsg::Input& input) override;
     void write(vsg::Output& output) const override;
 
@@ -178,9 +182,15 @@ public:
     vsg::ref_ptr<vsg::ImageInfo> scatteringTexture;
     vsg::ref_ptr<vsg::ImageInfo> singleMieScatteringTexture;
 
+    vsg::ref_ptr<vsg::Data> transmittanceData;
+    vsg::ref_ptr<vsg::Data> irradianceData;
+    vsg::ref_ptr<vsg::Data> scatteringData;
+    vsg::ref_ptr<vsg::Data> singleMieScatteringData;
+
     vsg::ref_ptr<vsg::ImageInfo> reflectionMap;
 
     vsg::ref_ptr<vsg::ShaderStage> reflectionMapShader;
+    vsg::ref_ptr<vsg::ShaderStage> environmentMapShader;
     vsg::ref_ptr<vsg::ShaderSet> phongShaderSet;
     vsg::ref_ptr<vsg::ShaderSet> pbrShaderSet;
     vsg::ref_ptr<vsg::Node> sky;
@@ -389,7 +399,6 @@ public:
     vsg::vec3 convertSpectrumToLinearSrgb(double c);
 
     vsg::ref_ptr<AtmosphereData> getData();
-    void mapData();
 
 private:
     void generateTextures();
@@ -421,8 +430,7 @@ private:
     void assignComputeConstants();
     void assignRenderConstants();
 
-    vsg::ref_ptr<vsg::Data> mapData(vsg::ref_ptr<vsg::ImageView> view, uint32_t width, uint32_t height);
-    vsg::ref_ptr<vsg::Data> mapData(vsg::ref_ptr<vsg::ImageView> view, uint32_t width, uint32_t height, uint32_t depth);
+    vsg::ref_ptr<vsg::Data> copyAndMapData(vsg::ref_ptr<vsg::ImageInfo> info);
 
     friend class AtmosphereLighting;
 };
@@ -430,6 +438,11 @@ private:
 extern vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
 extern vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::EllipsoidModel> eps, vsg::ref_ptr<vsg::Options> options);
 }
+
+EVSG_type_name(atmosphere::AtmosphereModel)
+EVSG_type_name(atmosphere::AtmosphereModelSettings)
+EVSG_type_name(atmosphere::AtmosphereData)
+EVSG_type_name(atmosphere::RuntimeSettings)
 
 namespace vsg {
     template<>

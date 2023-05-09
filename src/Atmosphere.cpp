@@ -1,6 +1,5 @@
 #include "Atmosphere.h"
 #include "AtmosphereTools.h"
-#include "AtmosphereLighting.h"
 #include "InverseMatrices.h"
 
 #include <vsg/all.h>
@@ -8,24 +7,65 @@
 
 namespace atmosphere {
 
+AtmosphereData::AtmosphereData()
+{
+
+}
+
+AtmosphereData::~AtmosphereData()
+{
+
+}
+
 void AtmosphereData::read(vsg::Input &input)
 {
-    input.read("transmittanceTexture", transmittanceTexture);
-    input.read("irradianceTexture", irradianceTexture);
-    input.read("scatteringTexture", scatteringTexture);
-    input.read("singleMieScatteringTexture", singleMieScatteringTexture);
+    input.read("cubeSize", cubeSize);
+    input.read("numViewerThreads", numViewerThreads);
 
-    input.read("settings", settings);
+    input.read("lengthUnitInMeters", lengthUnitInMeters);
+
+    input.readObject("transmittanceData", transmittanceData);
+    input.readObject("irradianceData", irradianceData);
+    input.readObject("scatteringData", scatteringData);
+    input.readObject("singleMieScatteringData", singleMieScatteringData);
+
+    auto sampler = vsg::Sampler::create();
+    transmittanceTexture = vsg::ImageInfo::create(sampler, transmittanceData);
+    irradianceTexture = vsg::ImageInfo::create(sampler, irradianceData);
+    scatteringTexture = vsg::ImageInfo::create(sampler, scatteringData);
+    singleMieScatteringTexture = vsg::ImageInfo::create(sampler, singleMieScatteringData);
+
+    input.readObject("reflectionMapShader", reflectionMapShader);
+    input.readObject("environmentMapShader", environmentMapShader);
+    input.readObject("phongShaderSet", phongShaderSet);
+    input.readObject("pbrShaderSet", pbrShaderSet);
+    input.readObject("sky", sky);
+
+    auto read = input.readValue<RuntimeSettings>("settings");
+
+    settings = vsg::Value<RuntimeSettings>::create(read);
+    settings->properties.dataVariance = vsg::DYNAMIC_DATA;
 }
 
 void AtmosphereData::write(vsg::Output &output) const
 {
-    output.write("transmittanceTexture", transmittanceTexture);
-    output.write("irradianceTexture", irradianceTexture);
-    output.write("scatteringTexture", scatteringTexture);
-    output.write("singleMieScatteringTexture", singleMieScatteringTexture);
+    output.write("cubeSize", cubeSize);
+    output.write("numViewerThreads", numViewerThreads);
 
-    output.write("settings", settings);
+    output.write("lengthUnitInMeters", lengthUnitInMeters);
+
+    output.writeObject("transmittanceData", transmittanceData);
+    output.writeObject("irradianceData", irradianceData);
+    output.writeObject("scatteringData", scatteringData);
+    output.writeObject("singleMieScatteringData", singleMieScatteringData);
+
+    output.writeObject("reflectionMapShader", reflectionMapShader);
+    output.writeObject("environmentMapShader", environmentMapShader);
+    output.writeObject("phongShaderSet", phongShaderSet);
+    output.writeObject("pbrShaderSet", pbrShaderSet);
+    output.writeObject("sky", sky);
+
+    output.write("settings", settings->value());
 }
 
 void AtmosphereData::setSunAngle(double radians)
@@ -33,9 +73,15 @@ void AtmosphereData::setSunAngle(double radians)
     sunDirection = {0.0, std::sin(radians + vsg::PI), std::cos(radians + vsg::PI)};
 }
 
+
 AtmosphereModelSettings::AtmosphereModelSettings(vsg::ref_ptr<vsg::EllipsoidModel> model)
     : ellipsoidModel(model)
 {
+}
+
+AtmosphereModelSettings::AtmosphereModelSettings()
+{
+
 }
 
 AtmosphereModelSettings::~AtmosphereModelSettings()
@@ -478,6 +524,11 @@ vsg::ref_ptr<AtmosphereData> AtmosphereModel::getData()
     runtimeData->scatteringTexture = _scatteringTexture;
     runtimeData->singleMieScatteringTexture = _singleMieScatteringTexture;
 
+    runtimeData->transmittanceData = copyAndMapData(_transmittanceTexture);
+    runtimeData->irradianceData = copyAndMapData(_irradianceTexture);
+    runtimeData->scatteringData = copyAndMapData(_scatteringTexture);
+    runtimeData->singleMieScatteringData = copyAndMapData(_singleMieScatteringTexture);
+
     runtimeData->reflectionMapShader = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", "shaders/scattering/reflection_map.glsl", _options);
     if (!runtimeData->reflectionMapShader)
     {
@@ -495,18 +546,6 @@ vsg::ref_ptr<AtmosphereData> AtmosphereModel::getData()
     runtimeData->lengthUnitInMeters = lengthUnitInMeters;
 
     return runtimeData;
-}
-
-void AtmosphereModel::mapData()
-{
-    mapData(_transmittanceTexture->imageView, transmittanceWidth, transmittanceHeight);
-    mapData(_irradianceTexture->imageView, irradianceWidth, irradianceHeight);
-
-    auto width = scatteringWidth();
-    auto height = scatteringHeight();
-    auto depth = scatteringDepth();
-    mapData(_scatteringTexture->imageView, width, height, depth);
-    mapData(_singleMieScatteringTexture->imageView, width, height, depth);
 }
 
 vsg::ref_ptr<vsg::CommandGraph> AtmosphereData::createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::vec4Value> camera)
@@ -744,7 +783,7 @@ void AtmosphereModel::generateTextures()
 vsg::ref_ptr<vsg::ImageInfo> AtmosphereModel::generate2D(uint32_t width, uint32_t height, bool init)
 {
     vsg::ref_ptr<vsg::Image> image = vsg::Image::create();
-    image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+    image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
     image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
     image->mipLevels = 1;
     image->extent = VkExtent3D{width, height, 1};
@@ -755,18 +794,17 @@ vsg::ref_ptr<vsg::ImageInfo> AtmosphereModel::generate2D(uint32_t width, uint32_
         image->data = vsg::vec4Array2D::create(width, height, vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f}, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT});
 
     image->compile(_device);
-    image->allocateAndBindMemory(_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    image->allocateAndBindMemory(_device);
 
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     auto sampler = vsg::Sampler::create();
     return vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
-
 }
 
 vsg::ref_ptr<vsg::ImageInfo> AtmosphereModel::generate3D(uint32_t width, uint32_t height, uint32_t depth, bool init)
 {
     vsg::ref_ptr<vsg::Image> image = vsg::Image::create();
-    image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+    image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
     image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
     image->mipLevels = 1;
     image->extent = VkExtent3D{width, height, depth};
@@ -777,12 +815,11 @@ vsg::ref_ptr<vsg::ImageInfo> AtmosphereModel::generate3D(uint32_t width, uint32_
         image->data = vsg::vec4Array3D::create(width, height, depth, vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f}, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT});
 
     image->compile(_device);
-    image->allocateAndBindMemory(_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    image->allocateAndBindMemory(_device);
 
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     auto sampler = vsg::Sampler::create();
     return vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
-
 }
 
 vsg::ref_ptr<vsg::ImageInfo> AtmosphereData::createCubemap(uint32_t size)
@@ -1084,22 +1121,100 @@ void AtmosphereModel::assignRenderConstants()
 
 }
 
-vsg::ref_ptr<vsg::Data> AtmosphereModel::mapData(vsg::ref_ptr<vsg::ImageView> view, uint32_t width, uint32_t height)
+vsg::ref_ptr<vsg::Data> AtmosphereModel::copyAndMapData(vsg::ref_ptr<vsg::ImageInfo> info)
 {
-    auto buffer = view->image->getDeviceMemory(_device->deviceID);
-    auto offset = view->image->getMemoryOffset(_device->deviceID);
+    auto sourceImage = info->imageView->image;
 
-    view->image->data = vsg::MappedData<vsg::vec4Array2D>::create(buffer, offset, 0, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT}, width, height);
-    return view->image->data;
-}
+    auto width = sourceImage->extent.width;
+    auto height = sourceImage->extent.height;
+    auto depth = sourceImage->extent.depth;
 
-vsg::ref_ptr<vsg::Data> AtmosphereModel::mapData(vsg::ref_ptr<vsg::ImageView> view, uint32_t width, uint32_t height, uint32_t depth)
-{
-    auto buffer = view->image->getDeviceMemory(_device->deviceID);
-    auto offset = view->image->getMemoryOffset(_device->deviceID);
+    VkFormat sourceImageFormat = sourceImage->format;
+    VkFormat targetImageFormat = sourceImageFormat;
 
-    view->image->data = vsg::MappedData<vsg::vec4Array3D>::create(buffer, offset, 0, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT}, width, height, depth);
-    return view->image->data;
+    auto destinationImage = vsg::Image::create();
+    destinationImage->imageType = sourceImage->imageType;
+    destinationImage->format = targetImageFormat;
+    destinationImage->extent.width = width;
+    destinationImage->extent.height = height;
+    destinationImage->extent.depth = depth;
+    destinationImage->arrayLayers = 1;
+    destinationImage->mipLevels = 1;
+    destinationImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    destinationImage->samples = VK_SAMPLE_COUNT_1_BIT;
+    destinationImage->tiling = VK_IMAGE_TILING_LINEAR;
+    destinationImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    destinationImage->compile(_device);
+
+    auto deviceMemory = vsg::DeviceMemory::create(_device, destinationImage->getMemoryRequirements(_device->deviceID), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    destinationImage->bind(deviceMemory, 0);
+
+    auto commands = vsg::Commands::create();
+
+    VkImageCopy region{};
+    region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.srcSubresource.layerCount = 1;
+    region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.dstSubresource.layerCount = 1;
+    region.extent.width = width;
+    region.extent.height = height;
+    region.extent.depth = depth;
+
+    auto copyImage = vsg::CopyImage::create();
+    copyImage->srcImage = sourceImage;
+    copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    copyImage->dstImage = destinationImage;
+    copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    copyImage->regions.push_back(region);
+
+    commands->addChild(copyImage);
+
+
+    auto fence = vsg::Fence::create(_device);
+    auto queueFamilyIndex = _physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
+    auto commandPool = vsg::CommandPool::create(_device, queueFamilyIndex);
+    auto queue = _device->getQueue(queueFamilyIndex);
+
+    vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
+        commands->record(commandBuffer);
+    });
+
+    //
+    // 4) map image and copy
+    //
+    VkImageSubresource subResource{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0};
+    VkSubresourceLayout subResourceLayout;
+    vkGetImageSubresourceLayout(*_device, destinationImage->vk(_device->deviceID), &subResource, &subResourceLayout);
+
+    size_t destRowWidth = width * sizeof(vsg::vec4);
+    vsg::ref_ptr<vsg::Data> imageData;
+    if (destRowWidth == subResourceLayout.rowPitch)
+    {
+        if(sourceImage->imageType == VK_IMAGE_TYPE_3D)
+            imageData = vsg::MappedData<vsg::vec4Array3D>::create(deviceMemory, subResourceLayout.offset, 0, vsg::Data::Properties{targetImageFormat}, width, height, depth); // deviceMemory, offset, flags and dimensions
+        else
+            imageData = vsg::MappedData<vsg::vec4Array2D>::create(deviceMemory, subResourceLayout.offset, 0, vsg::Data::Properties{targetImageFormat}, width, height); // deviceMemory, offset, flags and dimensions
+    }
+    else
+    {
+        if(sourceImage->imageType == VK_IMAGE_TYPE_3D)
+            return {};
+        else
+        {
+            // Map the buffer memory and assign as a ubyteArray that will automatically unmap itself on destruction.
+            // A ubyteArray is used as the graphics buffer memory is not contiguous like vsg::Array2D, so map to a flat buffer first then copy to Array2D.
+            auto mappedData = vsg::MappedData<vsg::floatArray>::create(deviceMemory, subResourceLayout.offset, 0, vsg::Data::Properties{targetImageFormat}, subResourceLayout.rowPitch*height);
+            imageData = vsg::vec4Array2D::create(width, height, vsg::Data::Properties{targetImageFormat});
+            for (uint32_t row = 0; row < height; ++row)
+            {
+                std::memcpy(imageData->dataPointer(row*width), mappedData->dataPointer(row * subResourceLayout.rowPitch), destRowWidth);
+            }
+        }
+    }
+
+    return imageData;
 }
 
 vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::EllipsoidModel> eps, vsg::ref_ptr<vsg::Options> options)

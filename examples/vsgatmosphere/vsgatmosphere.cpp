@@ -114,7 +114,12 @@ int main(int argc, char** argv)
         auto inverseView = atmosphere::InverseView::create(camera->viewMatrix);
         auto skyCamera = vsg::Camera::create(inversePerojection, inverseView, vsg::ViewportState::create(window->extent2D()));
 
-        auto model = atmosphere::createAtmosphereModel(window, atmosphere::AtmosphereModelSettings::create(ellipsoidModel), options);
+        vsg::RegisterWithObjectFactoryProxy<atmosphere::AtmosphereModelSettings>();
+        vsg::RegisterWithObjectFactoryProxy<atmosphere::AtmosphereData>();
+
+        auto settings = atmosphere::AtmosphereModelSettings::create(ellipsoidModel);
+
+        auto model = atmosphere::createAtmosphereModel(window, settings, options);
 
         auto mainViewDependent = atmosphere::AtmosphereLighting::create(modelView);
         model->viewDescriptorSetLayout = mainViewDependent->descriptorSetLayout;
@@ -124,6 +129,7 @@ int main(int argc, char** argv)
         skyViewDependent->transform = false;
 
         auto atmoshpere = model->getData();
+
         mainViewDependent->assignData(atmoshpere);
         skyViewDependent->assignData(atmoshpere);
 
