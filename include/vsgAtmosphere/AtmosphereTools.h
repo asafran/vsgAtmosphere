@@ -2,6 +2,7 @@
 #define ATMOSPHERETOOLS_H
 
 #include "AtmoshpereConstatnts.h"
+#include <bits/types/struct_tm.h>
 #include <vector>
 #include <assert.h>
 #include <vsg/maths/mat4.h>
@@ -114,6 +115,37 @@ constexpr double coeff(double dlambda, double lambda, int component)
             XYZ_TO_SRGB[component * 3] * x +
             XYZ_TO_SRGB[component * 3 + 1] * y +
             XYZ_TO_SRGB[component * 3 + 2] * z) * dlambda);
+}
+
+constexpr double day2000(tm time) {
+    int d1 = 0;
+    int b = 0;
+    int c = 0;
+    int greg = 0;
+
+    auto y = time.tm_year;
+    auto m = time.tm_mon;
+    auto d = time.tm_mday;
+    auto h = time.tm_hour;
+
+    greg = y * 10000 + m * 100 + d;
+    if (m == 1 || m == 2) {
+        y = y - 1;
+        m = m + 12;
+    }
+    //  reverts to Julian calendar before 4th Oct 1582
+    //  no good for UK, America or Sweeden!
+
+    if (greg > 15821004) {
+        auto a = std::floor(static_cast<double>(y) / 100.0);
+        b = 2 - a + static_cast<int>(std::floor(a / 4.0));
+    }
+    else {
+        b = 0;
+    }
+    c = static_cast<int>(std::floor(365.25 * y));
+    d1 = static_cast<int>(std::floor(30.6001 * (m + 1)));
+    return (b + c + d1 - 730550.5 + d + h / 24);
 }
 }
 

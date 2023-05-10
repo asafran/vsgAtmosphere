@@ -41,6 +41,8 @@ void AtmosphereData::read(vsg::Input &input)
     input.readObject("pbrShaderSet", pbrShaderSet);
     input.readObject("sky", sky);
 
+    input.readObject("ellipsoidModel", ellipsoidModel);
+
     auto read = input.readValue<RuntimeSettings>("settings");
 
     settings = vsg::Value<RuntimeSettings>::create(read);
@@ -65,12 +67,43 @@ void AtmosphereData::write(vsg::Output &output) const
     output.writeObject("pbrShaderSet", pbrShaderSet);
     output.writeObject("sky", sky);
 
+    output.writeObject("ellipsoidModel", ellipsoidModel);
+
     output.write("settings", settings->value());
 }
 
 void AtmosphereData::setSunAngle(double radians)
 {
     sunDirection = {0.0, std::sin(radians + vsg::PI), std::cos(radians + vsg::PI)};
+}
+
+void AtmosphereData::setDate(tm time)
+{
+    // Set time(s) relative to the J2000.0 epoch
+    //fractionalDay = 367 * y - 7 * (y + (m + 9) \ 12) \ 4 + 275 * m \ 9 + d - 730531.5 + h / 24
+    auto fractionalDay = day2000(time);
+    // Mean longitude of the Sun
+    auto meanLongitudeSunDegrees = 280.4606184 + ((36000.77005361 / 36525) * fractionalDay); //(degrees)
+    // Mean anomaly of the Sun
+    auto meanAnomalySunDegrees = 357.5277233 +
+            ((35999.05034 / 36525) * fractionalDay); //(degrees)
+    auto meanAnomalySunRadians = meanAnomalySunDegrees * vsg::PI / 180;
+    // Ecliptic longitude of the Sun
+    auto eclipticLongitudeSunDegrees = meanLongitudeSunDegrees +
+            (1.914666471 * sin(meanAnomalySunRadians)) +
+            (0.918994643 * sin(2 * meanAnomalySunRadians)); //(degrees)
+    auto eclipticLongitudeSunRadians = eclipticLongitudeSunDegrees * vsg::PI / 180;
+    // Obliquity of the ecliptic plane formula mostly derived from:
+    // https://en.wikipedia.org/wiki/Ecliptic#Obliquity_of_the_ecliptic
+    auto epsilonDegrees = // Formula deals with time denominated in centuries
+            23.43929 - ((46.8093 / 3600) * fractionalDay / 36525);  //(degrees)
+    auto epsilonRadians = epsilonDegrees * vsg::PI / 180;
+
+    vsg::dvec3 direction{cos(eclipticLongitudeSunRadians),
+                cos(epsilonRadians) * sin(eclipticLongitudeSunRadians),
+                sin(epsilonRadians) * sin(eclipticLongitudeSunRadians)};
+
+    sunDirection = direction;
 }
 
 
@@ -224,8 +257,8 @@ AtmosphereModel::AtmosphereModel(vsg::ref_ptr<AtmosphereModelSettings> settings,
     irradianceWidth = settings->irradianceWidth;
     irradianceHeight = settings->irradianceHeight;
 
-    bottomRadius = settings->ellipsoidModel->radiusEquator();
-    topRadius = bottomRadius + settings->kAtmoshpereHeight;
+    ellipsoidModel = settings->ellipsoidModel;
+    atmoshpereHeight = settings->kAtmoshpereHeight;
 
     for (int l = kLambdaMinN; l <= kLambdaMaxN; l += 10) {
         double lambda = static_cast<double>(l) * 1e-3;  // micro-meters
@@ -528,6 +561,8 @@ vsg::ref_ptr<AtmosphereData> AtmosphereModel::getData()
     runtimeData->irradianceData = copyAndMapData(_irradianceTexture);
     runtimeData->scatteringData = copyAndMapData(_scatteringTexture);
     runtimeData->singleMieScatteringData = copyAndMapData(_singleMieScatteringTexture);
+
+    runtimeData->ellipsoidModel = ellipsoidModel;
 
     runtimeData->reflectionMapShader = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", "shaders/scattering/reflection_map.glsl", _options);
     if (!runtimeData->reflectionMapShader)
@@ -1043,8 +1078,8 @@ void AtmosphereModel::assignComputeConstants()
         {17, vsg::intValue::create(irradianceHeight)},
 
         {36, vsg::floatValue::create(sunAngularRadius)},
-        {37, vsg::floatValue::create(static_cast<float>(bottomRadius / lengthUnitInMeters))},
-        {38, vsg::floatValue::create(static_cast<float>(topRadius / lengthUnitInMeters))},
+        {37, vsg::floatValue::create(static_cast<float>(ellipsoidModel->radiusEquator() / lengthUnitInMeters))},
+        {38, vsg::floatValue::create(static_cast<float>(ellipsoidModel->radiusEquator() + atmoshpereHeight / lengthUnitInMeters))},
         {39, vsg::floatValue::create(miePhaseFunction_g)},
         {40, vsg::floatValue::create(static_cast<float>(std::cos(maxSunZenithAngle)))}
     };
@@ -1105,8 +1140,8 @@ void AtmosphereModel::assignRenderConstants()
         {35, vsg::floatValue::create(ground_albedo.z)},
 
         {36, vsg::floatValue::create(sunAngularRadius)},
-        {37, vsg::floatValue::create(static_cast<float>(bottomRadius / lengthUnitInMeters))},
-        {38, vsg::floatValue::create(static_cast<float>(topRadius / lengthUnitInMeters))},
+        {37, vsg::floatValue::create(static_cast<float>(ellipsoidModel->radiusEquator() / lengthUnitInMeters))},
+        {38, vsg::floatValue::create(static_cast<float>(ellipsoidModel->radiusEquator() + atmoshpereHeight / lengthUnitInMeters))},
         {39, vsg::floatValue::create(miePhaseFunction_g)},
         {40, vsg::floatValue::create(static_cast<float>(std::cos(maxSunZenithAngle)))},
 
@@ -1256,8 +1291,6 @@ vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> wi
     // Wavelength independent solar irradiance "spectrum" (not physically
     // realistic, but was used in the original implementation).
     constexpr double kConstantSolarIrradiance = 1.5;
-    double kBottomRadius = eps->radiusEquator();
-    double kTopRadius = kBottomRadius + 60000.0;
     constexpr double kRayleigh = 1.24062e-6;
     constexpr double kRayleighScaleHeight = 8000.0;
     constexpr double kMieScaleHeight = 1200.0;
@@ -1313,8 +1346,8 @@ vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> wi
     model->waveLengths = wavelengths;
     model->solarIrradiance = solar_irradiance;
     model->sunAngularRadius = 0.01935f;
-    model->bottomRadius = kBottomRadius;
-    model->topRadius = kTopRadius;
+    model->ellipsoidModel = eps;
+    model->atmoshpereHeight = 60000.0;
     model->rayleighDensityLayer = rayleigh_layer;
     model->rayleighScattering = rayleigh_scattering;
     model->mieDensityLayer = mie_layer;
@@ -1336,6 +1369,34 @@ vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> wi
 vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options)
 {
     auto model = atmosphere::AtmosphereModel::create(settings, window->getOrCreateDevice(), window->getOrCreatePhysicalDevice(), options);
+
+    model->initialize(4);
+
+    return model;
+}
+
+vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options)
+{
+    vsg::Names instanceExtensions;
+    vsg::Names requestedLayers;
+    vsg::Names deviceExtensions;
+
+    vsg::Names validatedNames = vsg::validateInstancelayerNames(requestedLayers);
+
+    // get the physical device that supports the required compute queue
+    auto instance = vsg::Instance::create(instanceExtensions, validatedNames);
+    auto [physicalDevice, computeQueueFamily] = instance->getPhysicalDeviceAndQueueFamily(VK_QUEUE_COMPUTE_BIT);
+    if (!physicalDevice || computeQueueFamily < 0)
+    {
+        vsg::error("No vkPhysicalDevice available that supports compute.");
+        return {};
+    }
+
+    // create the logical device with specified queue, layers and extensions
+    vsg::QueueSettings queueSettings{vsg::QueueSetting{computeQueueFamily, {1.0}}};
+    auto device = vsg::Device::create(physicalDevice, queueSettings, validatedNames, deviceExtensions);
+
+    auto model = atmosphere::AtmosphereModel::create(settings, device, physicalDevice, options);
 
     model->initialize(4);
 

@@ -10,7 +10,7 @@ namespace atmosphere {
     class AtmosphereLighting : public vsg::Inherit<vsg::ViewDependentState, AtmosphereLighting>
     {
     public:
-        AtmosphereLighting(vsg::ref_ptr<vsg::ViewMatrix> view, uint32_t maxNumberLights = 64, uint32_t maxViewports = 1);
+        AtmosphereLighting(vsg::ref_ptr<vsg::ViewMatrix> view = {}, uint32_t maxNumberLights = 64, uint32_t maxViewports = 1);
 
         void assignData(vsg::ref_ptr<AtmosphereData> data);
 

@@ -187,6 +187,9 @@ public:
     vsg::ref_ptr<vsg::Data> scatteringData;
     vsg::ref_ptr<vsg::Data> singleMieScatteringData;
 
+    vsg::ref_ptr<vsg::ImageInfo> skyBox;
+
+    vsg::ref_ptr<vsg::ImageInfo> environmentMap;
     vsg::ref_ptr<vsg::ImageInfo> reflectionMap;
 
     vsg::ref_ptr<vsg::ShaderStage> reflectionMapShader;
@@ -195,11 +198,15 @@ public:
     vsg::ref_ptr<vsg::ShaderSet> pbrShaderSet;
     vsg::ref_ptr<vsg::Node> sky;
 
+    vsg::ref_ptr<vsg::EllipsoidModel> ellipsoidModel;
+
     vsg::ref_ptr<vsg::Value<RuntimeSettings>> settings;
 
     vsg::dvec3 sunDirection = {0.0, std::sin(vsg::PI), std::cos(vsg::PI)};
 
     void setSunAngle(double radians);
+
+    void setDate(tm time);
 
     vsg::ref_ptr<vsg::CommandGraph> createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::vec4Value> camera);
     vsg::ref_ptr<vsg::View> createSkyView(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Camera> camera);
@@ -251,14 +258,11 @@ public:
     float sunAngularRadius;
 
     /// <summary>
-    /// The distance between the planet center and the bottom of the atmosphere in m.
+    /// The distance between the bottom and the top of the atmosphere in m.
     /// </summary>
-    double bottomRadius;
+    double atmoshpereHeight;
 
-    /// <summary>
-    /// The distance between the planet center and the top of the atmosphere in m.
-    /// </summary>
-    double topRadius;
+    vsg::ref_ptr<vsg::EllipsoidModel> ellipsoidModel;
 
     /// <summary>
     /// The density profile of air molecules, i.e. a function from altitude to
@@ -437,6 +441,7 @@ private:
 
 extern vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
 extern vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::EllipsoidModel> eps, vsg::ref_ptr<vsg::Options> options);
+extern vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
 }
 
 EVSG_type_name(atmosphere::AtmosphereModel)

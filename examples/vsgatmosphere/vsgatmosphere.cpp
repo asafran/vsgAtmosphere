@@ -128,14 +128,14 @@ int main(int argc, char** argv)
         skyViewDependent->exposure = skyExposure;
         skyViewDependent->transform = false;
 
-        auto atmoshpere = model->getData();
+        auto atmosphere = model->getData();
 
-        mainViewDependent->assignData(atmoshpere);
-        skyViewDependent->assignData(atmoshpere);
+        mainViewDependent->assignData(atmosphere);
+        skyViewDependent->assignData(atmosphere);
 
-        atmoshpere->setSunAngle(sunAngle);
+        atmosphere->setSunAngle(sunAngle);
 
-        options->shaderSets["phong"] = atmoshpere->phongShaderSet;
+        options->shaderSets["phong"] = atmosphere->phongShaderSet;
 
         auto builder = vsg::Builder::create();
         builder->options = options;
@@ -162,7 +162,7 @@ int main(int argc, char** argv)
 
         viewer->addEventHandler(trackball);
 
-        auto compute_commandGraph = atmoshpere->createCubeMapGraph(window, cameraPos);
+        auto compute_commandGraph = atmosphere->createCubeMapGraph(window, cameraPos);
 
         // set up the render graph
         //auto renderGraph = vsg::createRenderGraphForView(window, camera, vsg_scene, VK_SUBPASS_CONTENTS_INLINE, false);
@@ -175,7 +175,7 @@ int main(int argc, char** argv)
         auto renderGraph = vsg::RenderGraph::create(window, mainView);
         renderGraph->contents = VK_SUBPASS_CONTENTS_INLINE;
 
-        auto skyView = vsg::View::create(skyCamera, atmoshpere->sky);
+        auto skyView = vsg::View::create(skyCamera, atmosphere->sky);
         skyView->viewDependentState = skyViewDependent;
 
         renderGraph->addChild(skyView);
