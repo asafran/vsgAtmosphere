@@ -1079,7 +1079,7 @@ void AtmosphereModel::assignComputeConstants()
 
         {36, vsg::floatValue::create(sunAngularRadius)},
         {37, vsg::floatValue::create(static_cast<float>(ellipsoidModel->radiusEquator() / lengthUnitInMeters))},
-        {38, vsg::floatValue::create(static_cast<float>(ellipsoidModel->radiusEquator() + atmoshpereHeight / lengthUnitInMeters))},
+        {38, vsg::floatValue::create(static_cast<float>((ellipsoidModel->radiusEquator() + atmoshpereHeight) / lengthUnitInMeters))},
         {39, vsg::floatValue::create(miePhaseFunction_g)},
         {40, vsg::floatValue::create(static_cast<float>(std::cos(maxSunZenithAngle)))}
     };
@@ -1141,7 +1141,7 @@ void AtmosphereModel::assignRenderConstants()
 
         {36, vsg::floatValue::create(sunAngularRadius)},
         {37, vsg::floatValue::create(static_cast<float>(ellipsoidModel->radiusEquator() / lengthUnitInMeters))},
-        {38, vsg::floatValue::create(static_cast<float>(ellipsoidModel->radiusEquator() + atmoshpereHeight / lengthUnitInMeters))},
+        {38, vsg::floatValue::create(static_cast<float>((ellipsoidModel->radiusEquator() + atmoshpereHeight) / lengthUnitInMeters))},
         {39, vsg::floatValue::create(miePhaseFunction_g)},
         {40, vsg::floatValue::create(static_cast<float>(std::cos(maxSunZenithAngle)))},
 
