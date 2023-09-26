@@ -1,58 +1,7 @@
-#version 450
-#extension GL_ARB_separate_shader_objects : enable
-
-#include "debug_constants.glsl"
+#include "rendering_constants.glsl"
 #include "constants.glsl"
 #include "functions.glsl"
-
-// ------------------------------------------------------------------
-// CONSTANTS --------------------------------------------------------
-// ------------------------------------------------------------------
-layout (local_size_x_id = 1, local_size_y_id = 1, local_size_z = 1) in;
-layout (constant_id = 2) const int CUBE_SIZE = 1024;
-
-// ------------------------------------------------------------------
-// UNIFORMS ---------------------------------------------------------
-// ------------------------------------------------------------------
-layout(set = 0, binding = 0, rgba32f) uniform imageCube cloud_map;
-
-layout(set = 0, binding = 1) uniform sampler2D weather_texture;
-layout(set = 0, binding = 2) uniform sampler3D shapenoise_texture;
-layout(set = 0, binding = 3) uniform sampler3D detailnoise_texture;
-layout(set = 0, binding = 4) uniform sampler2D bluenoise_texture;
-
-layout(set = 0, binding = 5, std140) uniform CloudProperties{
-    vec3 density_to_sigma_s;
-    float phase_g;
-    vec3 density_to_sigma_t;
-    int primary_ray_marching_steps;
-    vec3 box_min;
-    int secondary_ray_marching_steps;
-    vec3 box_max;
-    int enable_multi_scattering;
-    float g_c;
-    float g_d;
-    float wc0;
-    float wc1;
-    float wh;
-    float shape_tile;
-    float detail_tile;
-    float blend_alpha;
-    float cirrus;
-	float cumulus;
-};
-
-layout(set = 1, binding = 2) uniform sampler2D transmittance_texture;
-
-layout(set = 1, binding = 7, std140) uniform Positional
-{
-	vec4 sunDirectionExp;
-    vec4 cameraPos;
-} positional;
-
-layout(push_constant) uniform PushConstants {
-    float time;
-} pc;
+#include "rendering_data.glsl"
 
 // theta is view with horizon
 vec3 getTransmittance(float h, float theta){
@@ -146,7 +95,7 @@ float sampleDensity(vec3 pos){
 
 vec3 singleScattering(vec3 pos){
     //ray marching toward sun
-    vec3 ray_dir = -positional.sunDirectionExp.xyz;
+    vec3 ray_dir = -sun_dir;
     vec2 intersect_t = rayIntersectBox(box_min, box_max, pos, 1.0 / (ray_dir));
     float ray_march_dist = max(0, intersect_t.y);
     float dt = ray_march_dist / secondary_ray_marching_steps;
@@ -158,13 +107,13 @@ vec3 singleScattering(vec3 pos){
     return getTransmittance(pos.y, asin(ray_dir.y)) * exp(-sum_sigma_t);
 }
 
-vec4 cloudRayMarching(vec3 start_pos, vec3 ray_dir, float max_ray_advance_dist, vec2 uv){
+vec4 cloudRayMarching(vec3 start_pos, vec3 ray_dir, float max_ray_advance_dist){
 
     vec3 sum_sigma_t = vec3(0);
     float dt = max_ray_advance_dist / primary_ray_marching_steps;
     vec3 accu_radiance = vec3(0);
 
-    float blue_noise = texture(bluenoise_texture, uv).r;
+    float blue_noise = texture(bluenoise_texture, inUV).r;
     float advanced_dist = dt * blue_noise;
     for (int i = 0; i < primary_ray_marching_steps; ++i){
         vec3 ith_pos = start_pos + advanced_dist * ray_dir;
@@ -177,7 +126,7 @@ vec4 cloudRayMarching(vec3 start_pos, vec3 ray_dir, float max_ray_advance_dist, 
 
         vec3 sigma_s = density *  density_to_sigma_s;
 
-        vec3 rho = evalPhaseFunction(dot(positional.sunDirectionExp.xyz, -ray_dir));
+        vec3 rho = evalPhaseFunction(dot(sun_dir, -ray_dir));
 
         vec3 ith_transmittance = vec3(exp(-sum_sigma_t));
 
@@ -190,52 +139,4 @@ vec4 cloudRayMarching(vec3 start_pos, vec3 ray_dir, float max_ray_advance_dist, 
     }
 
     return vec4(accu_radiance, 1 - exp(-sum_sigma_t));
-}
-
-void main()
-{
-	vec2 coord = vec2(gl_GlobalInvocationID.xy) / float(CUBE_SIZE);
-	uint layer = gl_GlobalInvocationID.z;
-
-	vec3 view_direction = vec3(0.0, 0.0, 0.0);
-
-	switch (layer) {
-	case 0:
-		view_direction = normalize(vec3(0.5, 0.5 - coord.y, coord.x - 0.5));
-		break;
-	case 1:
-		view_direction = normalize(vec3(-0.5, 0.5 - coord.y, 0.5 - coord.x));
-		break;
-	case 2:
-		view_direction = normalize(vec3(coord.x - 0.5, 0.5, 0.5 - coord.y));
-		break;
-	case 3:
-		view_direction = normalize(vec3(coord.x - 0.5, -0.5, coord.y - 0.5));
-		break;
-	case 4:
-		view_direction = normalize(vec3(coord.x - 0.5, 0.5 - coord.y, -0.5));
-		break;
-	case 5:
-		view_direction = normalize(vec3(0.5 - coord.x, 0.5 - coord.y, 0.5));
-		break;
-	}
-
-	// Compute the radiance of the sky.
-	//vec3 transmittance;
-	//vec3 radiance = GetSkyRadiance(positional.cameraPos.xyz, view_direction, 4.0, positional.sunDirectionExp.xyz, transmittance);
-
-	// If the view ray intersects the Sun, add the Sun radiance.
-	//if (dot(view_direction, positional.sunDirectionExp.xyz) > settings.sun_size.y)
-		//radiance = radiance + transmittance * GetSolarRadiance();
-
-	ivec3 texel = ivec3(gl_GlobalInvocationID);
-
-    vec2 intersect_t = rayIntersectBox(box_min, box_max, positional.cameraPos.xyz, 1.0 / view_direction);
-
-	vec4 cloud_color = vec4(0);
-    if (intersect_t.y > 0 && intersect_t.y > intersect_t.x){
-        cloud_color = cloudRayMarching(positional.cameraPos.xyz + view_direction * max(0, intersect_t.x), view_direction, intersect_t.y - max(0, intersect_t.x), coord);
-    }
-		
-	imageStore(cloud_map, texel, cloud_color);
 }

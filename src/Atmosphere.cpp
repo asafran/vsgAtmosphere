@@ -116,6 +116,9 @@ vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::O
         }
 
         clouds->shader = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", std::string(cloudMapShader), options);
+        clouds->shader->specializationConstants = {{1, vsg::intValue::create(32)}, {2, vsg::intValue::create(1024)}};
+        clouds->shader->module->hints = vsg::ShaderCompileSettings::create();
+        clouds->shader->module->hints->generateDebugInfo = true;
 
         clouds->settings = vsg::Value<CloudSettings>::create();
         clouds->settings->properties.dataVariance = vsg::DYNAMIC_DATA;
@@ -737,7 +740,7 @@ vsg::ref_ptr<vsg::CommandGraph> Clouds::createCloudMapGraph(vsg::ref_ptr<vsg::Wi
     vsg::Descriptors descriptors{weather, shapenoise, detailnoise, bluenoise, parameters, cubemap};
     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
     auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
-    auto bindViewDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, view->descriptorSet);
+    auto bindDescriptorViewSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, view->descriptorSet);
 
     auto pushCamera = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, time);
 
@@ -785,7 +788,7 @@ vsg::ref_ptr<vsg::CommandGraph> Clouds::createCloudMapGraph(vsg::ref_ptr<vsg::Wi
     compute_commandGraph->addChild(preCopyBarrierCmd);
     compute_commandGraph->addChild(bindPipeline);
     compute_commandGraph->addChild(bindDescriptorSet);
-    compute_commandGraph->addChild(bindViewDescriptorSet);
+    compute_commandGraph->addChild(bindDescriptorViewSet);
     compute_commandGraph->addChild(pushCamera);
     auto workgroups = uint32_t(ceil(float(cubeSize) / float(numViewerThreads)));
     compute_commandGraph->addChild(vsg::Dispatch::create(workgroups, workgroups, 6));

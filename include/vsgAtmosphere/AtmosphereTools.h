@@ -34,7 +34,7 @@ vsg::ref_ptr<vsg::Data> convertArray(vsg::ref_ptr<vsg::Data> array)
     auto data = static_cast<vsg::ubvec4*>(array->dataRelease());
     if(!data || !array->is_compatible(typeid(vsg::ubvec4Array2D)))
         return {};
-    return vsg::ubvec4Array3D::create(height, width, width, data);
+    return vsg::ubvec4Array3D::create(height, width, width, data, array->properties);
 }
 
 inline double interpolate(
