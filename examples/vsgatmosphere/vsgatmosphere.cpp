@@ -33,6 +33,8 @@ int main(int argc, char** argv)
 
         arguments.read(options);
 
+        options->paths.emplace_back(options->paths.back() / "shaders" / "scattering");
+
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = "vsgatmosphere";
         windowTraits->debugLayer = arguments.read({"--debug", "-d"});
@@ -97,8 +99,8 @@ int main(int argc, char** argv)
         viewer->addWindow(window);
 
         double nearFarRatio = 0.0001;
-        auto cameraPos = vsg::vec4Value::create();
-        cameraPos->properties.dataVariance = vsg::DYNAMIC_DATA;
+        auto time = vsg::floatValue::create();
+        time->properties.dataVariance = vsg::DYNAMIC_DATA;
 
         auto modelView = vsg::LookAt::create();
         modelView->center = ellipsoidModel->convertLatLongAltitudeToECEF({51.50151088842245, -0.14181489107549874, 0.0});
@@ -128,7 +130,9 @@ int main(int argc, char** argv)
         skyViewDependent->exposure = skyExposure;
         skyViewDependent->transform = false;
 
-        auto atmosphere = model->getData();
+        auto atmosphere = model->loadData();
+
+        auto clouds = atmosphere::loadClouds("textures/scattering", options);
 
         mainViewDependent->assignData(atmosphere);
         skyViewDependent->assignData(atmosphere);
@@ -162,7 +166,7 @@ int main(int argc, char** argv)
 
         viewer->addEventHandler(trackball);
 
-        auto compute_commandGraph = atmosphere->createCubeMapGraph(window, cameraPos);
+        auto compute_commandGraph = clouds->createCloudMapGraph(window, mainViewDependent, time);
 
         // set up the render graph
         //auto renderGraph = vsg::createRenderGraphForView(window, camera, vsg_scene, VK_SUBPASS_CONTENTS_INLINE, false);
@@ -175,7 +179,7 @@ int main(int argc, char** argv)
         auto renderGraph = vsg::RenderGraph::create(window, mainView);
         renderGraph->contents = VK_SUBPASS_CONTENTS_INLINE;
 
-        auto skyView = vsg::View::create(skyCamera, atmosphere->sky);
+        auto skyView = vsg::View::create(skyCamera, atmosphere->createSky(skyViewDependent->descriptorSetLayout));
         skyView->viewDependentState = skyViewDependent;
 
         renderGraph->addChild(skyView);

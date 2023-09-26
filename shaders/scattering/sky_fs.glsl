@@ -6,6 +6,7 @@
 #include "functions.glsl"
 
 layout(location = 0) in vec3 inRay;
+layout(location = 1) in vec2 inUV;
 layout(location = 0) out vec4 outColor;
 
 // ------------------------------------------------------------------
@@ -28,6 +29,8 @@ layout(set = 1, binding = 7, std140) uniform Positional
 	vec4 sunDirectionExp;
     vec4 cameraPos;
 } positional;
+
+layout(set = 1, binding = 8) uniform samplerCube cloudMap;
 
 
 layout(push_constant) uniform PushConstants {

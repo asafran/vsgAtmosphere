@@ -1,6 +1,7 @@
 #ifndef ATMOSHPERECONSTATNTS_H
 #define ATMOSHPERECONSTATNTS_H
 
+#include <string_view>
 namespace atmosphere {
 
 // Values from "CIE (1931) 2-deg color matching functions", see
@@ -131,6 +132,18 @@ constexpr double XYZ_TO_SRGB[9] = {
 
     constexpr double kLambdaMin = 360.0;
     constexpr double kLambdaMax = 830.0;
+
+
+//Paths and filenames
+
+    constexpr std::string_view weatherTextureName = "weather.png";
+    constexpr std::string_view shapeNoiseTextureName = "shapenoise.png";
+    constexpr std::string_view detailNoiseTextureName = "detailnoise.png";
+    constexpr std::string_view blueNoiseTextureName = "bluenoise.png";
+    constexpr std::string_view cloudMapShader = "cloud_map.glsl";
+
+    constexpr std::string_view skyFragShader = "sky_fs.glsl";
+    constexpr std::string_view skyVertShader = "sky_vs.glsl";
 
 }
 #endif // ATMOSHPERECONSTATNTS_H

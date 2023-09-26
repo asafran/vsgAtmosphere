@@ -2,13 +2,40 @@
 #define ATMOSPHERETOOLS_H
 
 #include "AtmoshpereConstatnts.h"
-#include <bits/types/struct_tm.h>
+#include <cstdint>
 #include <vector>
 #include <assert.h>
 #include <vsg/maths/mat4.h>
 #include <vsg/maths/vec3.h>
+#include <vsg/state/ImageInfo.h>
 
 namespace atmosphere {
+
+vsg::ref_ptr<vsg::ImageInfo> createCubemap(uint32_t size)
+{
+    vsg::ref_ptr<vsg::Image> image = vsg::Image::create();
+    image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+    image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    image->mipLevels = 1;
+    image->extent = VkExtent3D{size, size, 1};
+    image->imageType = VK_IMAGE_TYPE_2D;
+    image->arrayLayers = 6;
+
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    imageView->viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    auto sampler = vsg::Sampler::create();
+    return vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
+}
+
+vsg::ref_ptr<vsg::Data> convertArray(vsg::ref_ptr<vsg::Data> array)
+{
+    auto width = std::sqrt(array->width());
+    auto height = array->height();
+    auto data = static_cast<vsg::ubvec4*>(array->dataRelease());
+    if(!data || !array->is_compatible(typeid(vsg::ubvec4Array2D)))
+        return {};
+    return vsg::ubvec4Array3D::create(height, width, width, data);
+}
 
 inline double interpolate(
         const std::vector<double>& wavelengths,

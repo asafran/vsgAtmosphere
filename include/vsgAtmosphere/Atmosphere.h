@@ -9,12 +9,17 @@
 #include <vsg/core/Data.h>
 #include <vsg/state/ImageInfo.h>
 #include <vsg/state/ShaderStage.h>
+#include <vsg/state/ViewDependentState.h>
 #include <vsg/utils/ShaderSet.h>
 
 #include <vsg/io/Input.h>
 #include <vsg/io/Output.h>
 
 namespace atmosphere {
+
+class AtmosphereLighting;
+class AtmosphereModel;
+class Clouds;
 
 struct DensityProfileLayer
 {
@@ -163,12 +168,75 @@ struct RuntimeSettings
     }
 };
 
+struct CloudSettings
+{
+    vsg::vec3 density_to_sigma_s = {1.0f, 1.0f, 1.0f};
+    float phase_g = 0.8f;
+    vsg::vec3 density_to_sigma_t = {1.0f, 1.0f, 1.0f};
+    int primary_ray_marching_steps = 64;
+    vsg::vec3 box_min = {-50.0f, 50.0f, -50.0f};
+    int secondary_ray_marching_steps = 4;
+    vsg::vec3 box_max = {50.0f, 60.0f, 50.0f};
+    int enable_multi_scattering = 0;
+    float g_c = 0.8f;
+    float g_d = 1.0f;
+    float wc0 = 0.8f;
+    float wc1 = 0.9f;
+    float wh = 0.8f;
+    float shape_tile = 0.03f;
+    float detail_tile = 0.11f;
+    float blend_alpha = 0.5f;
+    float cirrus = 0.4f;
+    float cumulus = 0.8f;
+
+    void read(vsg::Input& input)
+    {
+        input.read("density_to_sigma_s", density_to_sigma_s);
+        input.read("phase_g", phase_g);
+        input.read("density_to_sigma_t", density_to_sigma_t);
+        input.read("primary_ray_marching_steps", primary_ray_marching_steps);
+        input.read("box_min", box_min);
+        input.read("secondary_ray_marching_steps", secondary_ray_marching_steps);
+        input.read("box_max", box_max);
+        input.read("enable_multi_scattering", enable_multi_scattering);
+        input.read("g_c", g_c);
+        input.read("g_d", g_d);
+        input.read("wc0", wc0);
+        input.read("wc1", wc1);
+        input.read("wh", wh);
+        input.read("shape_tile", shape_tile);
+        input.read("detail_tile", detail_tile);
+        input.read("blend_alpha", blend_alpha);
+        input.read("cirrus", cirrus);
+        input.read("cumulus", cumulus);
+    }
+
+    void write(vsg::Output& output) const
+    {
+        output.write("density_to_sigma_s", density_to_sigma_s);
+        output.write("phase_g", phase_g);
+        output.write("density_to_sigma_t", density_to_sigma_t);
+        output.write("primary_ray_marching_steps", primary_ray_marching_steps);
+        output.write("box_min", box_min);
+        output.write("secondary_ray_marching_steps", secondary_ray_marching_steps);
+        output.write("box_max", box_max);
+        output.write("enable_multi_scattering", enable_multi_scattering);
+        output.write("g_c", g_c);
+        output.write("g_d", g_d);
+        output.write("wc0", wc0);
+        output.write("wc1", wc1);
+        output.write("wh", wh);
+        output.write("shape_tile", shape_tile);
+        output.write("detail_tile", detail_tile);
+        output.write("blend_alpha", blend_alpha);
+        output.write("cirrus", cirrus);
+        output.write("cumulus", cumulus);
+    }
+};
+
 class AtmosphereData : public vsg::Inherit<vsg::Object, AtmosphereData>
 {
 public:
-    AtmosphereData();
-    virtual ~AtmosphereData();
-
     void read(vsg::Input& input) override;
     void write(vsg::Output& output) const override;
 
@@ -187,20 +255,18 @@ public:
     vsg::ref_ptr<vsg::Data> scatteringData;
     vsg::ref_ptr<vsg::Data> singleMieScatteringData;
 
-    vsg::ref_ptr<vsg::ImageInfo> skyBox;
-
     vsg::ref_ptr<vsg::ImageInfo> environmentMap;
     vsg::ref_ptr<vsg::ImageInfo> reflectionMap;
 
     vsg::ref_ptr<vsg::ShaderStage> reflectionMapShader;
     vsg::ref_ptr<vsg::ShaderStage> environmentMapShader;
+    vsg::ShaderStages skyShader;
     vsg::ref_ptr<vsg::ShaderSet> phongShaderSet;
     vsg::ref_ptr<vsg::ShaderSet> pbrShaderSet;
-    vsg::ref_ptr<vsg::Node> sky;
 
     vsg::ref_ptr<vsg::EllipsoidModel> ellipsoidModel;
 
-    vsg::ref_ptr<vsg::Value<RuntimeSettings>> settings;
+    vsg::ref_ptr<vsg::Value<RuntimeSettings>> runtimeSettings;
 
     vsg::dvec3 sunDirection = {0.0, std::sin(vsg::PI), std::cos(vsg::PI)};
 
@@ -210,9 +276,33 @@ public:
 
     vsg::ref_ptr<vsg::CommandGraph> createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::vec4Value> camera);
     vsg::ref_ptr<vsg::View> createSkyView(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Camera> camera);
-
-    vsg::ref_ptr<vsg::ImageInfo> createCubemap(uint32_t size);
+    vsg::ref_ptr<vsg::Node> createSky(vsg::ref_ptr<vsg::DescriptorSetLayout> vdsl, vsg::ref_ptr<Clouds> clouds = {});
 };
+
+class Clouds : public vsg::Inherit<vsg::Object, Clouds>
+{
+public:
+    //void read(vsg::Input& input) override;
+    //void write(vsg::Output& output) const override;
+
+    uint32_t cubeSize = 1024;
+    int numViewerThreads = 32;
+
+    vsg::ref_ptr<vsg::Data> weatherData;
+    vsg::ref_ptr<vsg::Data> shapeNoiseData;
+    vsg::ref_ptr<vsg::Data> detailNoiseData;
+    vsg::ref_ptr<vsg::Data> blueNoiseData;
+
+    vsg::ref_ptr<vsg::ImageInfo> cloudMap;
+
+    vsg::ref_ptr<vsg::ShaderStage> shader;
+
+    vsg::ref_ptr<vsg::Value<CloudSettings>> settings;
+
+    vsg::ref_ptr<vsg::CommandGraph> createCloudMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereLighting> view, vsg::ref_ptr<vsg::floatValue> time);
+};
+
+extern vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::Options> options);
 
 class AtmosphereModel : public vsg::Inherit<vsg::Object, AtmosphereModel>
 {
@@ -402,13 +492,12 @@ public:
 
     vsg::vec3 convertSpectrumToLinearSrgb(double c);
 
-    vsg::ref_ptr<AtmosphereData> getData();
+    vsg::ref_ptr<AtmosphereData> loadData(vsg::ref_ptr<Clouds> clouds = {});
 
 private:
     void generateTextures();
 
     vsg::ref_ptr<vsg::ShaderSet> createPhongShaderSet();
-    vsg::ref_ptr<vsg::Node> createSky();
 
     vsg::ref_ptr<vsg::ImageInfo> generate2D(uint32_t width, uint32_t height, bool init = false);
     vsg::ref_ptr<vsg::ImageInfo> generate3D(uint32_t width, uint32_t height, uint32_t depth, bool init = false);
@@ -448,6 +537,7 @@ EVSG_type_name(atmosphere::AtmosphereModel)
 EVSG_type_name(atmosphere::AtmosphereModelSettings)
 EVSG_type_name(atmosphere::AtmosphereData)
 EVSG_type_name(atmosphere::RuntimeSettings)
+EVSG_type_name(atmosphere::CloudSettings)
 
 namespace vsg {
     template<>

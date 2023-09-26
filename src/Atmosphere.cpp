@@ -1,4 +1,5 @@
 #include "Atmosphere.h"
+#include "AtmosphereLighting.h"
 #include "AtmosphereTools.h"
 #include "InverseMatrices.h"
 
@@ -7,15 +8,6 @@
 
 namespace atmosphere {
 
-AtmosphereData::AtmosphereData()
-{
-
-}
-
-AtmosphereData::~AtmosphereData()
-{
-
-}
 
 void AtmosphereData::read(vsg::Input &input)
 {
@@ -39,14 +31,13 @@ void AtmosphereData::read(vsg::Input &input)
     input.readObject("environmentMapShader", environmentMapShader);
     input.readObject("phongShaderSet", phongShaderSet);
     input.readObject("pbrShaderSet", pbrShaderSet);
-    input.readObject("sky", sky);
 
     input.readObject("ellipsoidModel", ellipsoidModel);
 
-    auto read = input.readValue<RuntimeSettings>("settings");
+    auto runtime = input.readValue<RuntimeSettings>("runtimeSettings");
 
-    settings = vsg::Value<RuntimeSettings>::create(read);
-    settings->properties.dataVariance = vsg::DYNAMIC_DATA;
+    runtimeSettings = vsg::Value<RuntimeSettings>::create(runtime);
+    runtimeSettings->properties.dataVariance = vsg::DYNAMIC_DATA;
 }
 
 void AtmosphereData::write(vsg::Output &output) const
@@ -65,11 +56,10 @@ void AtmosphereData::write(vsg::Output &output) const
     output.writeObject("environmentMapShader", environmentMapShader);
     output.writeObject("phongShaderSet", phongShaderSet);
     output.writeObject("pbrShaderSet", pbrShaderSet);
-    output.writeObject("sky", sky);
 
     output.writeObject("ellipsoidModel", ellipsoidModel);
 
-    output.write("settings", settings->value());
+    output.write("runtimeSettings", runtimeSettings->value());
 }
 
 void AtmosphereData::setSunAngle(double radians)
@@ -106,6 +96,35 @@ void AtmosphereData::setDate(tm time)
     sunDirection = direction;
 }
 
+vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::Options> options)
+{
+    auto clouds = Clouds::create();
+    try {
+
+        clouds->weatherData = vsg::read_cast<vsg::Data>(path / std::string(weatherTextureName), options);
+        clouds->blueNoiseData = vsg::read_cast<vsg::Data>(path / std::string(blueNoiseTextureName), options);
+
+        clouds->shapeNoiseData = vsg::read_cast<vsg::Data>(path / std::string(shapeNoiseTextureName), options);
+        clouds->detailNoiseData = vsg::read_cast<vsg::Data>(path / std::string(detailNoiseTextureName), options);
+
+        clouds->shapeNoiseData = convertArray(clouds->shapeNoiseData);
+        clouds->detailNoiseData = convertArray(clouds->detailNoiseData);
+        if(!clouds->shapeNoiseData || !clouds->detailNoiseData)
+        {
+            vsg::error("Incompatible shape noise or detail noise data.");
+            return {};
+        }
+
+        clouds->shader = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", std::string(cloudMapShader), options);
+
+        clouds->settings = vsg::Value<CloudSettings>::create();
+        clouds->settings->properties.dataVariance = vsg::DYNAMIC_DATA;
+    } catch (vsg::Exception) {
+        vsg::error("Could not load clouds data.");
+        return {};
+    }
+    return clouds;
+}
 
 AtmosphereModelSettings::AtmosphereModelSettings(vsg::ref_ptr<vsg::EllipsoidModel> model)
     : ellipsoidModel(model)
@@ -548,7 +567,7 @@ vsg::vec3 AtmosphereModel::convertSpectrumToLinearSrgb(double c)
     return {static_cast<float>(r), static_cast<float>(g), static_cast<float>(b)};
 }
 
-vsg::ref_ptr<AtmosphereData> AtmosphereModel::getData()
+vsg::ref_ptr<AtmosphereData> AtmosphereModel::loadData(vsg::ref_ptr<Clouds> clouds)
 {
     auto runtimeData = AtmosphereData::create();
 
@@ -565,18 +584,35 @@ vsg::ref_ptr<AtmosphereData> AtmosphereModel::getData()
     runtimeData->ellipsoidModel = ellipsoidModel;
 
     runtimeData->reflectionMapShader = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", "shaders/scattering/reflection_map.glsl", _options);
+
     if (!runtimeData->reflectionMapShader)
     {
         vsg::error("Could not find shaders.");
         return {};
     }
+    {
+        auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", std::string(skyVertShader), _options);
+        auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", std::string(skyFragShader), _options);
+        if (!vertexShader || !fragmentShader)
+        {
+            vsg::error("Could not find sky shaders.");
+            return {};
+        }
+
+        runtimeData->skyShader = {vertexShader, fragmentShader};
+
+        fragmentShader->specializationConstants = _renderConstants;
+        vertexShader->module->hints = compileSettings;
+        fragmentShader->module->hints = compileSettings;
+    }
+
+
 
     runtimeData->phongShaderSet = createPhongShaderSet();
-    runtimeData->sky = createSky();
 
     RuntimeSettings settings{vsg::vec4(convertSpectrumToLinearSrgb(3.0), 0.0f), {std::tan(sunAngularRadius), std::cos(sunAngularRadius)}};
-    runtimeData->settings = vsg::Value<atmosphere::RuntimeSettings>::create(settings);
-    runtimeData->settings->properties.dataVariance = vsg::DYNAMIC_DATA;
+    runtimeData->runtimeSettings = vsg::Value<atmosphere::RuntimeSettings>::create(settings);
+    runtimeData->runtimeSettings->properties.dataVariance = vsg::DYNAMIC_DATA;
 
     runtimeData->lengthUnitInMeters = lengthUnitInMeters;
 
@@ -602,7 +638,7 @@ vsg::ref_ptr<vsg::CommandGraph> AtmosphereData::createCubeMapGraph(vsg::ref_ptr<
         {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vsg::vec4)}
     };
 
-    auto settingsBuffer = vsg::DescriptorBuffer::create(settings, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    auto settingsBuffer = vsg::DescriptorBuffer::create(runtimeSettings, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     auto transmittance = vsg::DescriptorImage::create(transmittanceTexture, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     auto irradiance = vsg::DescriptorImage::create(irradianceTexture, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     auto scattering = vsg::DescriptorImage::create(scatteringTexture, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -668,6 +704,96 @@ vsg::ref_ptr<vsg::CommandGraph> AtmosphereData::createCubeMapGraph(vsg::ref_ptr<
     return compute_commandGraph;
 }
 
+vsg::ref_ptr<vsg::CommandGraph> Clouds::createCloudMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereLighting> view, vsg::ref_ptr<vsg::floatValue> time)
+{
+    if(!cloudMap)
+        cloudMap = createCubemap(cubeSize);
+
+    vsg::DescriptorSetLayoutBindings descriptorBindings{
+        {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        {4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        {5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+    };
+    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
+
+    vsg::PushConstantRanges pushConstantRanges{
+        {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(float)}
+    };
+
+    auto weather = vsg::DescriptorImage::create(vsg::Sampler::create(), weatherData, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    auto shapenoise = vsg::DescriptorImage::create(vsg::Sampler::create(), shapeNoiseData, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    auto detailnoise = vsg::DescriptorImage::create(vsg::Sampler::create(), detailNoiseData, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    auto bluenoise = vsg::DescriptorImage::create(vsg::Sampler::create(), blueNoiseData, 4, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+    auto parameters = vsg::DescriptorBuffer::create(settings, 5, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+
+    auto cubemap = vsg::DescriptorImage::create(cloudMap, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
+    auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout, view->descriptorSetLayout}, pushConstantRanges);
+
+    vsg::Descriptors descriptors{weather, shapenoise, detailnoise, bluenoise, parameters, cubemap};
+    auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
+    auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
+    auto bindViewDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, view->descriptorSet);
+
+    auto pushCamera = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, time);
+
+    // set up the compute pipeline
+
+
+    auto pipeline = vsg::ComputePipeline::create(pipelineLayout, shader);
+    auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+
+    auto preCopyBarrier = vsg::ImageMemoryBarrier::create();
+    preCopyBarrier->srcAccessMask = 0;
+    preCopyBarrier->dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    preCopyBarrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    preCopyBarrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    preCopyBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    preCopyBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    preCopyBarrier->image = cloudMap->imageView->image;
+    preCopyBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    preCopyBarrier->subresourceRange.baseArrayLayer = 0;
+    preCopyBarrier->subresourceRange.layerCount = 6;
+    preCopyBarrier->subresourceRange.levelCount = 1;
+    preCopyBarrier->subresourceRange.baseMipLevel = 0;
+
+    auto preCopyBarrierCmd = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, preCopyBarrier);
+
+    auto postCopyBarrier = vsg::ImageMemoryBarrier::create();
+    postCopyBarrier->srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    postCopyBarrier->dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    postCopyBarrier->oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+    postCopyBarrier->newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    postCopyBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    postCopyBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    postCopyBarrier->image = cloudMap->imageView->image;
+    postCopyBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    postCopyBarrier->subresourceRange.baseArrayLayer = 0;
+    postCopyBarrier->subresourceRange.layerCount = 6;
+    postCopyBarrier->subresourceRange.levelCount = 1;
+    postCopyBarrier->subresourceRange.baseMipLevel = 0;
+
+    auto postCopyBarrierCmd = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, postCopyBarrier);
+
+    int computeQueueFamily = window->getOrCreatePhysicalDevice()->getQueueFamily(VK_QUEUE_COMPUTE_BIT);
+    auto compute_commandGraph = vsg::CommandGraph::create(window->getOrCreateDevice(), computeQueueFamily);
+
+    compute_commandGraph->addChild(preCopyBarrierCmd);
+    compute_commandGraph->addChild(bindPipeline);
+    compute_commandGraph->addChild(bindDescriptorSet);
+    compute_commandGraph->addChild(bindViewDescriptorSet);
+    compute_commandGraph->addChild(pushCamera);
+    auto workgroups = uint32_t(ceil(float(cubeSize) / float(numViewerThreads)));
+    compute_commandGraph->addChild(vsg::Dispatch::create(workgroups, workgroups, 6));
+    compute_commandGraph->addChild(postCopyBarrierCmd);
+
+    return compute_commandGraph;
+}
+
 vsg::ref_ptr<vsg::ShaderSet> AtmosphereModel::createPhongShaderSet()
 {
     vsg::info("Local phong_ShaderSet(",_options,")");
@@ -717,23 +843,13 @@ vsg::ref_ptr<vsg::ShaderSet> AtmosphereModel::createPhongShaderSet()
     return shaderSet;
 }
 
-vsg::ref_ptr<vsg::Node> AtmosphereModel::createSky()
+vsg::ref_ptr<vsg::Node> AtmosphereData::createSky(vsg::ref_ptr<vsg::DescriptorSetLayout> vdsl, vsg::ref_ptr<Clouds> clouds)
 {
-    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", "shaders/scattering/sky_vs.glsl", _options);
-    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", "shaders/scattering/sky_fs.glsl", _options);
-    if (!vertexShader || !fragmentShader)
+    auto dsl = vsg::DescriptorSetLayout::create();
+    if(clouds)
     {
-        vsg::error("Could not find shaders.");
-        return {};
+        dsl->bindings.push_back({0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr});
     }
-
-    const vsg::ShaderStages shaders{vertexShader, fragmentShader};
-
-    fragmentShader->specializationConstants = _renderConstants;
-    vertexShader->module->hints = compileSettings;
-    fragmentShader->module->hints = compileSettings;
-
-    auto dummy = vsg::DescriptorSetLayout::create();
 
     vsg::PushConstantRanges pushConstantRanges{
         {VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128}
@@ -756,14 +872,24 @@ vsg::ref_ptr<vsg::Node> AtmosphereModel::createSky()
         vsg::ColorBlendState::create(),
         depthState};
 
-    auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{dummy, viewDescriptorSetLayout}, pushConstantRanges);
-    auto pipeline = vsg::GraphicsPipeline::create(pipelineLayout, shaders, pipelineStates);
+
+    auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{dsl, vdsl}, pushConstantRanges);
+    auto pipeline = vsg::GraphicsPipeline::create(pipelineLayout, skyShader, pipelineStates);
     auto bindGraphicsPipeline = vsg::BindGraphicsPipeline::create(pipeline);
     auto bindViewDescriptorSets = vsg::BindViewDescriptorSets::create(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1);
 
     auto root = vsg::StateGroup::create();
     root->add(bindGraphicsPipeline);
     root->add(bindViewDescriptorSets);
+
+    if(clouds)
+    {
+        auto cubemap = vsg::DescriptorImage::create(clouds->cloudMap, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        vsg::Descriptors descriptors{cubemap};
+        auto descriptorSet = vsg::DescriptorSet::create(dsl, descriptors);
+        auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, descriptorSet);
+        root->add(bindDescriptorSet);
+    }
 
     auto vid = vsg::VertexIndexDraw::create();
 
@@ -792,7 +918,7 @@ vsg::ref_ptr<vsg::View> AtmosphereData::createSkyView(vsg::ref_ptr<vsg::Window> 
     auto inverseView = atmosphere::InverseView::create(camera->viewMatrix);
     auto skyCamera = vsg::Camera::create(inversePerojection, inverseView, vsg::ViewportState::create(window->extent2D()));
 
-    return vsg::View::create(skyCamera, sky);
+    return vsg::View::create(skyCamera);
 }
 
 void AtmosphereModel::generateTextures()
@@ -857,21 +983,6 @@ vsg::ref_ptr<vsg::ImageInfo> AtmosphereModel::generate3D(uint32_t width, uint32_
     return vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
 }
 
-vsg::ref_ptr<vsg::ImageInfo> AtmosphereData::createCubemap(uint32_t size)
-{
-    vsg::ref_ptr<vsg::Image> image = vsg::Image::create();
-    image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
-    image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    image->mipLevels = 1;
-    image->extent = VkExtent3D{size, size, 1};
-    image->imageType = VK_IMAGE_TYPE_2D;
-    image->arrayLayers = 6;
-
-    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageView->viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-    auto sampler = vsg::Sampler::create();
-    return vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
-}
 /*
 vsg::ref_ptr<vsg::BufferInfo> AtmosphereModel::generateVec4Array(uint32_t size)
 {
@@ -1402,5 +1513,6 @@ vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<AtmosphereModel
 
     return model;
 }
+
 
 }

@@ -13,6 +13,7 @@ namespace atmosphere {
         AtmosphereLighting(vsg::ref_ptr<vsg::ViewMatrix> view = {}, uint32_t maxNumberLights = 64, uint32_t maxViewports = 1);
 
         void assignData(vsg::ref_ptr<AtmosphereData> data);
+        void assignData(vsg::ref_ptr<AtmosphereLighting> vds);
 
         double exposure = 10.0;
         bool transform = true;
