@@ -1,6 +1,7 @@
 #ifndef ATMOSPHEREMODEL_H
 #define ATMOSPHEREMODEL_H
 
+#include "AtmosphereImage.h"
 #include <string>
 #include <vector>
 #include <vsg/app/EllipsoidModel.h>
@@ -18,8 +19,7 @@
 namespace atmosphere {
 
 class AtmosphereLighting;
-class AtmosphereModel;
-class Clouds;
+class AtmosphereGenerator;
 
 struct DensityProfileLayer
 {
@@ -63,34 +63,35 @@ struct DensityProfileLayer
 class AtmosphereModelSettings : public vsg::Inherit<vsg::Object, AtmosphereModelSettings>
 {
 public:
-    AtmosphereModelSettings(vsg::ref_ptr<vsg::EllipsoidModel> model);
+    explicit AtmosphereModelSettings(vsg::ref_ptr<vsg::EllipsoidModel> model);
     AtmosphereModelSettings();
     virtual ~AtmosphereModelSettings();
 
     void read(vsg::Input& input) override;
     void write(vsg::Output& output) const override;
 
-    int numThreads = 8;
+    vsg::ShaderStage::SpecializationConstants getComputeConstants() const;
 
-    int transmittanceWidth = 256;
-    int transmittanceHeight = 64;
+    unsigned int numThreads = 8;
 
-    int scaterringR = 32;
-    int scaterringMU = 128;
-    int scaterringMU_S = 32;
-    int scaterringNU = 8;
+    unsigned int transmittanceWidth = 256;
+    unsigned int transmittanceHeight = 64;
 
-    int irradianceWidth = 64;
-    int irradianceHeight = 16;
+    unsigned int scaterringR = 32;
+    unsigned int scaterringMU = 128;
+    unsigned int scaterringMU_S = 32;
+    unsigned int scaterringNU = 8;
 
-    int precomputedWavelenghts = 15;
+    unsigned int irradianceWidth = 64;
+    unsigned int irradianceHeight = 16;
 
-    float sunAngularRadius = 0.01935f;
+    unsigned int detailNoiseWidth = 64;
+    unsigned int detailNoiseHeight = 64;
+    unsigned int detailNoiseDepth = 64;
 
-    float miePhaseFunction_g = 0.8f;
-
-    double maxSunZenithAngle = 120.0 / 180.0 * vsg::PI;
-    double lengthUnitInMeters = 1000.0;
+    unsigned int shapeNoiseWidth = 64;
+    unsigned int shapeNoiseHeight = 64;
+    unsigned int shapeNoiseDepth = 64;
 
     vsg::ref_ptr<vsg::EllipsoidModel> ellipsoidModel;
 
@@ -130,8 +131,6 @@ public:
     /// realistic, but was used in the original implementation).
     double kConstantSolarIrradiance = 1.5;
 
-    double kAtmoshpereHeight = 60000.0;
-
     double kRayleigh = 1.24062e-6;
     double kRayleighScaleHeight = 8000.0;
     double kMieScaleHeight = 1200.0;
@@ -140,14 +139,72 @@ public:
     double kMieSingleScatteringAlbedo = 0.9;
     double kGroundAlbedo = 0.1;
 
+    double lengthUnitInMeters = 1000.0;
+
     bool use_constant_solar_spectrum_ = false;
     bool use_ozone = true;
 
+    /// <summary>
+    /// The sun's angular radius, in radians. Warning: the implementation uses
+    /// approximations that are valid only if this value is smaller than 0.1.
+    /// </summary>
+    float sunAngularRadius = 0.01935f;
+
+    /// <summary>
+    /// The distance between the bottom and the top of the atmosphere in m.
+    /// </summary>
+    double atmoshpereHeight = 60000.0;
+
+    /// <summary>
+    /// The density profile of air molecules, i.e. a function from altitude to
+    /// dimensionless values between 0 (null density) and 1 (maximum density).
+    /// Layers must be sorted from bottom to top. The width of the last layer is
+    /// ignored, i.e. it always extend to the top atmosphere boundary. At most 2
+    /// layers can be specified.
+    /// </summary>
     DensityProfileLayer rayleighDensityLayer = {0.0, 1.0, -1.0 / kRayleighScaleHeight, 0.0, 0.0, lengthUnitInMeters};
+
+    /// <summary>
+    /// The density profile of aerosols, i.e. a function from altitude to
+    /// dimensionless values between 0 (null density) and 1 (maximum density).
+    /// Layers must be sorted from bottom to top. The width of the last layer is
+    /// ignored, i.e. it always extend to the top atmosphere boundary. At most 2
+    /// layers can be specified.
+    /// </summary>
     DensityProfileLayer mieDensityLayer = {0.0f, 1.0f, -1.0f / kMieScaleHeight, 0.0f, 0.0f, lengthUnitInMeters};
 
+    /// <summary>
+    /// The asymetry parameter for the Cornette-Shanks phase function for the aerosols.
+    /// </summary>
+    float miePhaseFunction_g = 0.8f;
+
+    /// <summary>
+    /// The density profile of air molecules that absorb light (e.g. ozone), i.e.
+    /// a function from altitude to dimensionless values between 0 (null density)
+    /// and 1 (maximum density). Layers must be sorted from bottom to top. The
+    /// width of the last layer is ignored, i.e. it always extend to the top
+    /// atmosphere boundary. At most 2 layers can be specified.
+    /// </summary>
     DensityProfileLayer absorptionDensityLayer0 = {25000.0, 0.0, 0.0, 1.0 / 15000.0, -2.0 / 3.0, lengthUnitInMeters};
     DensityProfileLayer absorptionDensityLayer1 = {0.0, 0.0, 0.0, -1.0 / 15000.0, 8.0 / 3.0, lengthUnitInMeters};
+
+    /// <summary>
+    /// The maximum Sun zenith angle for which atmospheric scattering must be
+    /// precomputed, in radians (for maximum precision, use the smallest Sun
+    /// zenith angle yielding negligible sky light radiance values. For instance,
+    /// for the Earth case, 102 degrees is a good choice for most cases (120
+    /// degrees is necessary for very high exposure values).
+    /// </summary>
+    double maxSunZenithAngle = 120.0 / 180.0 * vsg::PI;
+
+    /// <summary>
+    /// The length unit used in your shaders and meshes. This is the length unit
+    /// which must be used when calling the atmosphere model shader functions.
+    /// </summary>
+
+    int precomputedWavelenghts = 15;
+
+    int scatteringOrders = 4;
 };
 
 struct RuntimeSettings
@@ -170,28 +227,35 @@ struct RuntimeSettings
 
 struct CloudSettings
 {
-    vsg::vec3 density_to_sigma_s = {1.0f, 1.0f, 1.0f};
-    float phase_g = 0.8f;
-    vsg::vec3 density_to_sigma_t = {1.0f, 1.0f, 1.0f};
-    int primary_ray_marching_steps = 64;
-    vsg::vec3 box_min = {-50.0f, 50.0f, -50.0f};
-    int secondary_ray_marching_steps = 4;
-    vsg::vec3 box_max = {50.0f, 60.0f, 50.0f};
-    int enable_multi_scattering = 0;
-    float g_c = 0.8f;
-    float g_d = 1.0f;
-    float wc0 = 0.8f;
-    float wc1 = 0.9f;
-    float wh = 0.8f;
-    float shape_tile = 0.03f;
-    float detail_tile = 0.11f;
-    float blend_alpha = 0.5f;
-    float cirrus = 0.4f;
-    float cumulus = 0.8f;
+    float 	  cloudMinHeight = 1500.0f;
+    float 	  cloudMaxHeight = 4000.0f;
+    float 	  shapeNoiseScale = 0.3f;
+    float 	  detailNoiseScale = 5.5f;
+
+    float 	  detailNoiseModifier = 0.5f;
+    float 	  turbulenceNoiseScale = 7.440f;
+    float 	  turbulenceAmount = 1.0f;
+    float 	  cloudCoverage = 0.7f;
+
+    vsg::vec3 	  windDirection = {1.0f, 0.0f, 0.0f};
+    float	  windSpeed = 0.0f;
+
+    float	  windShearOffset = 500.0f;
+    uint16_t	  maxNumSteps = 128;
+    float 	  lightStepLength = 64.0f;
+    float 	  lightConeRadius = 0.4f;
+
+    vsg::vec3      cloudBaseColor = {1.0f, 1.0f, 1.0f};
+    float 	  precipitation = 1.0f;
+
+    float 	  ambientLightFactor = 0.12f;
+    float 	  sunLightFactor = 1.0f;
+    float 	  henyeyGreensteinGForward = 0.179f;
+    float 	  henyeyGreensteinGBackward = 0.6f;
 
     void read(vsg::Input& input)
     {
-        input.read("density_to_sigma_s", density_to_sigma_s);
+        /*input.read("density_to_sigma_s", density_to_sigma_s);
         input.read("phase_g", phase_g);
         input.read("density_to_sigma_t", density_to_sigma_t);
         input.read("primary_ray_marching_steps", primary_ray_marching_steps);
@@ -208,12 +272,12 @@ struct CloudSettings
         input.read("detail_tile", detail_tile);
         input.read("blend_alpha", blend_alpha);
         input.read("cirrus", cirrus);
-        input.read("cumulus", cumulus);
+        input.read("cumulus", cumulus);*/
     }
 
     void write(vsg::Output& output) const
     {
-        output.write("density_to_sigma_s", density_to_sigma_s);
+        /*output.write("density_to_sigma_s", density_to_sigma_s);
         output.write("phase_g", phase_g);
         output.write("density_to_sigma_t", density_to_sigma_t);
         output.write("primary_ray_marching_steps", primary_ray_marching_steps);
@@ -230,8 +294,44 @@ struct CloudSettings
         output.write("detail_tile", detail_tile);
         output.write("blend_alpha", blend_alpha);
         output.write("cirrus", cirrus);
-        output.write("cumulus", cumulus);
+        output.write("cumulus", cumulus);*/
     }
+};
+
+class Clouds : public vsg::Inherit<vsg::Object, Clouds>
+{
+public:
+    Clouds(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options);
+    Clouds();
+    virtual ~Clouds();
+
+    void initialize(int noiseSize);
+
+    void read(vsg::Input& input) override;
+    void write(vsg::Output& output) const override;
+
+    int numThreads = 8;
+
+    int detailNoiseSize = 32;
+    int shapeNoiseSize = 128;
+
+    vsg::ref_ptr<vsg::ImageInfo> shapeNoiseTexture;
+    vsg::ref_ptr<vsg::ImageInfo> detailNoiseTexture;
+
+    vsg::ref_ptr<vsg::Data> shapeNoiseData;
+    vsg::ref_ptr<vsg::Data> detailNoiseData;
+    vsg::ref_ptr<vsg::Data> blueNoiseData;
+    vsg::ref_ptr<vsg::Data> curlNoiseData;
+
+private:
+    vsg::ref_ptr<vsg::Device> _device;
+    vsg::ref_ptr<vsg::PhysicalDevice> _physicalDevice;
+    vsg::ref_ptr<vsg::Options> _options;
+
+    void generateTextures();
+
+    vsg::ref_ptr<vsg::DescriptorSet> bindDetailNoise() const;
+    vsg::ref_ptr<vsg::DescriptorSet> bindShapeNoise() const;
 };
 
 class AtmosphereData : public vsg::Inherit<vsg::Object, AtmosphereData>
@@ -245,15 +345,10 @@ public:
 
     double lengthUnitInMeters = 1000.0;
 
-    vsg::ref_ptr<vsg::ImageInfo> transmittanceTexture;
-    vsg::ref_ptr<vsg::ImageInfo> irradianceTexture;
-    vsg::ref_ptr<vsg::ImageInfo> scatteringTexture;
-    vsg::ref_ptr<vsg::ImageInfo> singleMieScatteringTexture;
-
-    vsg::ref_ptr<vsg::Data> transmittanceData;
-    vsg::ref_ptr<vsg::Data> irradianceData;
-    vsg::ref_ptr<vsg::Data> scatteringData;
-    vsg::ref_ptr<vsg::Data> singleMieScatteringData;
+    vsg::ref_ptr<Image> transmittanceTexture;
+    vsg::ref_ptr<Image> irradianceTexture;
+    vsg::ref_ptr<Image> scatteringTexture;
+    vsg::ref_ptr<Image> singleMieScatteringTexture;
 
     vsg::ref_ptr<vsg::ImageInfo> environmentMap;
     vsg::ref_ptr<vsg::ImageInfo> reflectionMap;
@@ -274,55 +369,18 @@ public:
 
     void setDate(tm time);
 
+    void copyData(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice);
+
     vsg::ref_ptr<vsg::CommandGraph> createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::vec4Value> camera);
     vsg::ref_ptr<vsg::View> createSkyView(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Camera> camera);
-    vsg::ref_ptr<vsg::Node> createSky(vsg::ref_ptr<vsg::DescriptorSetLayout> vdsl, vsg::ref_ptr<Clouds> clouds = {});
+    vsg::ref_ptr<vsg::Node> createSky(vsg::ref_ptr<vsg::DescriptorSetLayout> viewDescriptorSetLayout);
 };
 
-class Clouds : public vsg::Inherit<vsg::Object, Clouds>
+//extern vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::Options> options);
+
+class AtmosphereGenerator : public vsg::Inherit<vsg::Object, AtmosphereGenerator>
 {
 public:
-    //void read(vsg::Input& input) override;
-    //void write(vsg::Output& output) const override;
-
-    uint32_t cubeSize = 1024;
-    int numViewerThreads = 32;
-
-    vsg::ref_ptr<vsg::Data> weatherData;
-    vsg::ref_ptr<vsg::Data> shapeNoiseData;
-    vsg::ref_ptr<vsg::Data> detailNoiseData;
-    vsg::ref_ptr<vsg::Data> blueNoiseData;
-
-    vsg::ref_ptr<vsg::ImageInfo> cloudMap;
-
-    vsg::ref_ptr<vsg::ShaderStage> shader;
-
-    vsg::ref_ptr<vsg::Value<CloudSettings>> settings;
-
-    vsg::ref_ptr<vsg::CommandGraph> createCloudMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereLighting> view, vsg::ref_ptr<vsg::floatValue> time);
-};
-
-extern vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::Options> options);
-
-class AtmosphereModel : public vsg::Inherit<vsg::Object, AtmosphereModel>
-{
-public:
-
-    int numThreads = 8;
-    int numViewerThreads = 32;
-
-    int transmittanceWidth = 256;
-    int transmittanceHeight = 64;
-
-    int scaterringR = 32;
-    int scaterringMU = 128;
-    int scaterringMU_S = 32;
-    int scaterringNU = 8;
-
-    int irradianceWidth = 64;
-    int irradianceHeight = 16;
-
-    int cubeSize = 1024;
 
     /// <summary>
     /// The wavelength values, in nanometers, and sorted in increasing order, for
@@ -340,46 +398,6 @@ public:
     /// vector must have the same size as the wavelengths parameter.
     /// </summary>
     std::vector<double> solarIrradiance;
-
-    /// <summary>
-    /// The sun's angular radius, in radians. Warning: the implementation uses
-    /// approximations that are valid only if this value is smaller than 0.1.
-    /// </summary>
-    float sunAngularRadius;
-
-    /// <summary>
-    /// The distance between the bottom and the top of the atmosphere in m.
-    /// </summary>
-    double atmoshpereHeight;
-
-    vsg::ref_ptr<vsg::EllipsoidModel> ellipsoidModel;
-
-    /// <summary>
-    /// The density profile of air molecules, i.e. a function from altitude to
-    /// dimensionless values between 0 (null density) and 1 (maximum density).
-    /// Layers must be sorted from bottom to top. The width of the last layer is
-    /// ignored, i.e. it always extend to the top atmosphere boundary. At most 2
-    /// layers can be specified.
-    /// </summary>
-    DensityProfileLayer rayleighDensityLayer;
-
-    /// <summary>
-    /// The scattering coefficient of air molecules at the altitude where their
-    /// density is maximum (usually the bottom of the atmosphere), as a function
-    /// of wavelength, in m^-1. The scattering coefficient at altitude h is equal
-    /// to 'rayleigh_scattering' times 'rayleigh_density' at this altitude. This
-    /// vector must have the same size as the wavelengths parameter.
-    /// </summary>
-    std::vector<double> rayleighScattering;
-
-    /// <summary>
-    /// The density profile of aerosols, i.e. a function from altitude to
-    /// dimensionless values between 0 (null density) and 1 (maximum density).
-    /// Layers must be sorted from bottom to top. The width of the last layer is
-    /// ignored, i.e. it always extend to the top atmosphere boundary. At most 2
-    /// layers can be specified.
-    /// </summary>
-    DensityProfileLayer mieDensityLayer;
 
     /// <summary>
     /// The scattering coefficient of aerosols at the altitude where their
@@ -400,21 +418,6 @@ public:
     std::vector<double> mieExtinction;
 
     /// <summary>
-    /// The asymetry parameter for the Cornette-Shanks phase function for the aerosols.
-    /// </summary>
-    float miePhaseFunction_g;
-
-    /// <summary>
-    /// The density profile of air molecules that absorb light (e.g. ozone), i.e.
-    /// a function from altitude to dimensionless values between 0 (null density)
-    /// and 1 (maximum density). Layers must be sorted from bottom to top. The
-    /// width of the last layer is ignored, i.e. it always extend to the top
-    /// atmosphere boundary. At most 2 layers can be specified.
-    /// </summary>
-    DensityProfileLayer absorptionDensityLayer0;
-    DensityProfileLayer absorptionDensityLayer1;
-
-    /// <summary>
     /// The extinction coefficient of molecules that absorb light (e.g. ozone) at
     /// the altitude where their density is maximum, as a function of wavelength,
     /// in m^-1. The extinction coefficient at altitude h is equal to
@@ -430,25 +433,17 @@ public:
     std::vector<double> groundAlbedo;
 
     /// <summary>
-    /// The maximum Sun zenith angle for which atmospheric scattering must be
-    /// precomputed, in radians (for maximum precision, use the smallest Sun
-    /// zenith angle yielding negligible sky light radiance values. For instance,
-    /// for the Earth case, 102 degrees is a good choice for most cases (120
-    /// degrees is necessary for very high exposure values).
+    /// The scattering coefficient of air molecules at the altitude where their
+    /// density is maximum (usually the bottom of the atmosphere), as a function
+    /// of wavelength, in m^-1. The scattering coefficient at altitude h is equal
+    /// to 'rayleigh_scattering' times 'rayleigh_density' at this altitude. This
+    /// vector must have the same size as the wavelengths parameter.
     /// </summary>
-    double maxSunZenithAngle;
-
-    /// <summary>
-    /// The length unit used in your shaders and meshes. This is the length unit
-    /// which must be used when calling the atmosphere model shader functions.
-    /// </summary>
-    double lengthUnitInMeters;
+    std::vector<double> rayleighScattering;
 
     vsg::ref_ptr<vsg::DescriptorSetLayout> viewDescriptorSetLayout;
 
     vsg::ref_ptr<vsg::ShaderCompileSettings> compileSettings;
-
-    int precomputedWavelenghts = 15;
 
 private:
 
@@ -462,49 +457,47 @@ private:
         vsg::vec4 absorption_extinction;
     };
 
+    vsg::ref_ptr<AtmosphereModelSettings> _settings;
+
+    vsg::ref_ptr<Image> _transmittanceTexture;
+    vsg::ref_ptr<Image> _irradianceTexture;
+    vsg::ref_ptr<Image> _scatteringTexture;
+    vsg::ref_ptr<Image> _singleMieScatteringTexture;
+
     vsg::ref_ptr<vsg::Device> _device;
     vsg::ref_ptr<vsg::PhysicalDevice> _physicalDevice;
     vsg::ref_ptr<vsg::Options> _options;
 
-    vsg::ref_ptr<vsg::ImageInfo> _transmittanceTexture;
+    vsg::ref_ptr<Image> _deltaIrradianceTexture;
 
-    vsg::ref_ptr<vsg::ImageInfo> _irradianceTexture;
-    vsg::ref_ptr<vsg::ImageInfo> _deltaIrradianceTexture;
+    vsg::ref_ptr<Image> _deltaRayleighScatteringTexture;
+    vsg::ref_ptr<Image> _deltaMieScatteringTexture;
 
-    vsg::ref_ptr<vsg::ImageInfo> _deltaRayleighScatteringTexture;
-    vsg::ref_ptr<vsg::ImageInfo> _deltaMieScatteringTexture;
-    vsg::ref_ptr<vsg::ImageInfo> _scatteringTexture;
-    vsg::ref_ptr<vsg::ImageInfo> _singleMieScatteringTexture;
-
-    vsg::ref_ptr<vsg::ImageInfo> _deltaScatteringDensityTexture;
-    vsg::ref_ptr<vsg::ImageInfo> _deltaMultipleScatteringTexture;
-
+    vsg::ref_ptr<Image> _deltaScatteringDensityTexture;
+    vsg::ref_ptr<Image> _deltaMultipleScatteringTexture;
 
     vsg::ShaderStage::SpecializationConstants _computeConstants;
     vsg::ShaderStage::SpecializationConstants _renderConstants;
 
 public:
-    AtmosphereModel(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options);
-    AtmosphereModel(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options);
-    virtual ~AtmosphereModel();
+    AtmosphereGenerator(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options);
+    AtmosphereGenerator(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options);
+    virtual ~AtmosphereGenerator();
 
-    void initialize(int scatteringOrders);
+    void initialize();
 
     vsg::vec3 convertSpectrumToLinearSrgb(double c);
 
-    vsg::ref_ptr<AtmosphereData> loadData(vsg::ref_ptr<Clouds> clouds = {});
+    vsg::ref_ptr<AtmosphereData> loadData();
 
 private:
     void generateTextures();
 
     vsg::ref_ptr<vsg::ShaderSet> createPhongShaderSet();
 
-    vsg::ref_ptr<vsg::ImageInfo> generate2D(uint32_t width, uint32_t height, bool init = false);
-    vsg::ref_ptr<vsg::ImageInfo> generate3D(uint32_t width, uint32_t height, uint32_t depth, bool init = false);
-
-    int scatteringWidth() const { return scaterringNU * scaterringMU_S; }
-    int scatteringHeight() const { return scaterringMU; }
-    int scatteringDepth() const { return scaterringR; }
+    unsigned int scatteringWidth() const { return _settings->scaterringNU * _settings->scaterringMU_S; }
+    unsigned int scatteringHeight() const { return _settings->scaterringMU; }
+    unsigned int scatteringDepth() const { return _settings->scaterringR; }
 
     vsg::ref_ptr<vsg::BindComputePipeline> bindCompute(const vsg::Path& filename, vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout) const;
     vsg::ref_ptr<vsg::DescriptorSet> bindTransmittance() const;
@@ -523,17 +516,15 @@ private:
     void assignComputeConstants();
     void assignRenderConstants();
 
-    vsg::ref_ptr<vsg::Data> copyAndMapData(vsg::ref_ptr<vsg::ImageInfo> info);
-
     friend class AtmosphereLighting;
 };
 
-extern vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
-extern vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::EllipsoidModel> eps, vsg::ref_ptr<vsg::Options> options);
-extern vsg::ref_ptr<AtmosphereModel> createAtmosphereModel(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
+extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
+extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::EllipsoidModel> eps, vsg::ref_ptr<vsg::Options> options);
+extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
 }
 
-EVSG_type_name(atmosphere::AtmosphereModel)
+EVSG_type_name(atmosphere::AtmosphereGenerator)
 EVSG_type_name(atmosphere::AtmosphereModelSettings)
 EVSG_type_name(atmosphere::AtmosphereData)
 EVSG_type_name(atmosphere::RuntimeSettings)

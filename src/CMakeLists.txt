@@ -3,6 +3,7 @@ SET(HEADER_PATH ${VSGATMOSPHERE_SOURCE_DIR}/include/vsgAtmosphere)
 set(SOURCES
         Atmosphere.cpp
         AtmosphereLighting.cpp
+        AtmosphereImage.cpp
 )
 set(HEADERS
         ${HEADER_PATH}/AtmoshpereConstatnts.h
@@ -10,6 +11,7 @@ set(HEADERS
         ${HEADER_PATH}/Atmosphere.h
         ${HEADER_PATH}/AtmosphereLighting.h
         ${HEADER_PATH}/InverseMatrices.h
+        ${HEADER_PATH}/AtmosphereImage.h
 )
 
 add_library(vsgAtmosphere ${HEADERS} ${SOURCES})

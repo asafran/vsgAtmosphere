@@ -40,6 +40,34 @@ layout(set = 0, binding = 5, std140) uniform CloudProperties{
     float blend_alpha;
     float cirrus;
 	float cumulus;
+
+uniform float 	  u_CloudMinHeight;
+uniform float 	  u_CloudMaxHeight;
+
+uniform float 	  u_ShapeNoiseScale;
+uniform float 	  u_DetailNoiseScale;
+
+uniform float 	  u_DetailNoiseModifier;
+uniform float 	  u_TurbulenceNoiseScale;
+
+uniform float 	  u_TurbulenceAmount;
+uniform float 	  u_CloudCoverage;
+uniform vec3 	  u_WindDirection;
+uniform float	  u_WindSpeed;
+uniform float	  u_WindShearOffset;
+uniform float     u_Time;
+uniform float	  u_MaxNumSteps;
+uniform float 	  u_LightStepLength;
+uniform float 	  u_LightConeRadius;
+
+uniform vec3      u_CloudBaseColor;
+uniform vec3      u_CloudTopColor;
+
+uniform float 	  u_Precipitation;
+uniform float 	  u_AmbientLightFactor;
+uniform float 	  u_SunLightFactor;
+uniform float 	  u_HenyeyGreensteinGForward;
+uniform float 	  u_HenyeyGreensteinGBackward;
 };
 
 layout(set = 1, binding = 2) uniform sampler2D transmittance_texture;

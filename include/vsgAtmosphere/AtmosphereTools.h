@@ -8,6 +8,8 @@
 #include <vsg/maths/mat4.h>
 #include <vsg/maths/vec3.h>
 #include <vsg/state/ImageInfo.h>
+#include <vsg/state/Descriptor.h>
+#include <vsg/state/DescriptorImage.h>
 
 namespace atmosphere {
 
@@ -23,6 +25,86 @@ vsg::ref_ptr<vsg::ImageInfo> createCubemap(uint32_t size)
 
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     imageView->viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    auto sampler = vsg::Sampler::create();
+    return vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
+}
+
+void addImage(vsg::ref_ptr<vsg::ImageInfo> image, vsg::Descriptors &descriptors)
+{
+    int last = descriptors.empty() ? 0 : descriptors.back()->dstBinding + 1;
+    auto storage = vsg::DescriptorImage::create(image, last++, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    //auto sampled = vsg::DescriptorImage::create(image, last, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    descriptors.push_back(storage);
+    //descriptors.push_back(sampled);
+}
+
+vsg::ref_ptr<vsg::ImageInfo> generateTexture(vsg::ref_ptr<vsg::Device> device, VkExtent3D extent, vsg::ref_ptr<vsg::Sampler> sampler = {}, bool init = false, VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT)
+{
+    vsg::ref_ptr<vsg::Image> image = vsg::Image::create();
+    image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+    image->format = format;
+    image->mipLevels = 1;
+    image->extent = extent;
+    image->imageType = VK_IMAGE_TYPE_2D;
+    image->arrayLayers = 1;
+
+    if(extent.depth > 1)
+    {
+        image->imageType = VK_IMAGE_TYPE_3D;
+        if(init)
+            image->data = vsg::vec4Array3D::create(extent.width, extent.height, extent.depth, vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f}, vsg::Data::Properties{format});
+    }
+    else
+    {
+        image->imageType = VK_IMAGE_TYPE_2D;
+        if(init)
+            image->data = vsg::vec4Array2D::create(extent.width, extent.height, vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f}, vsg::Data::Properties{format});
+    }
+
+    image->compile(device);
+    image->allocateAndBindMemory(device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    if(!sampler)
+        sampler = vsg::Sampler::create();
+    return vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
+}
+
+vsg::ref_ptr<vsg::ImageInfo> generate3D(vsg::ref_ptr<vsg::Device> device, uint32_t width, uint32_t height, uint32_t depth, bool init = false)
+{
+    vsg::ref_ptr<vsg::Image> image = vsg::Image::create();
+    image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+    image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    image->mipLevels = 1;
+    image->extent = VkExtent3D{width, height, depth};
+    image->imageType = VK_IMAGE_TYPE_3D;
+    image->arrayLayers = 1;
+
+    if(init)
+
+
+    image->compile(device);
+    image->allocateAndBindMemory(device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    auto sampler = vsg::Sampler::create();
+    return vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
+}
+
+vsg::ref_ptr<vsg::ImageInfo> generateNoise(vsg::ref_ptr<vsg::Device> device, uint32_t size)
+{
+    vsg::ref_ptr<vsg::Image> image = vsg::Image::create();
+    image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+    image->format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    image->mipLevels = 1;
+    image->extent = VkExtent3D{size, size, size};
+    image->imageType = VK_IMAGE_TYPE_3D;
+    image->arrayLayers = 1;
+
+    image->compile(device);
+    image->allocateAndBindMemory(device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     auto sampler = vsg::Sampler::create();
     return vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
 }

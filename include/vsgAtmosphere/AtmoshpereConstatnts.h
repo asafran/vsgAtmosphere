@@ -136,11 +136,14 @@ constexpr double XYZ_TO_SRGB[9] = {
 
 //Paths and filenames
 
-    constexpr std::string_view weatherTextureName = "weather.png";
+    constexpr std::string_view curlNoiseTextureName = "weather.png";
     constexpr std::string_view shapeNoiseTextureName = "shapenoise.png";
     constexpr std::string_view detailNoiseTextureName = "detailnoise.png";
     constexpr std::string_view blueNoiseTextureName = "bluenoise.png";
     constexpr std::string_view cloudMapShader = "cloud_map.glsl";
+
+    constexpr std::string_view detailNoiseShader = "compute_detail_noise_cs.glsl";
+    constexpr std::string_view shapeNoiseShader = "compute_shape_noise_cs.glsl";
 
     constexpr std::string_view skyFragShader = "sky_fs.glsl";
     constexpr std::string_view skyVertShader = "sky_vs.glsl";

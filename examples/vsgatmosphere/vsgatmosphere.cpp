@@ -121,18 +121,18 @@ int main(int argc, char** argv)
 
         auto settings = atmosphere::AtmosphereModelSettings::create(ellipsoidModel);
 
-        auto model = atmosphere::createAtmosphereModel(window, settings, options);
+        auto atmosphereGenerator = atmosphere::createAtmosphereGenerator(window, settings, options);
 
         auto mainViewDependent = atmosphere::AtmosphereLighting::create(modelView);
-        model->viewDescriptorSetLayout = mainViewDependent->descriptorSetLayout;
+        atmosphereGenerator->viewDescriptorSetLayout = mainViewDependent->descriptorSetLayout;
         mainViewDependent->exposure = modelExposure;
         auto skyViewDependent = atmosphere::AtmosphereLighting::create(inverseView);
         skyViewDependent->exposure = skyExposure;
         skyViewDependent->transform = false;
 
-        auto atmosphere = model->loadData();
+        auto atmosphere = atmosphereGenerator->loadData();
 
-        auto clouds = atmosphere::loadClouds("textures/scattering", options);
+        //auto clouds = atmosphere::loadClouds("textures/scattering", options);
 
         mainViewDependent->assignData(atmosphere);
         skyViewDependent->assignData(atmosphere);
@@ -166,7 +166,7 @@ int main(int argc, char** argv)
 
         viewer->addEventHandler(trackball);
 
-        auto compute_commandGraph = clouds->createCloudMapGraph(window, mainViewDependent, time);
+        //auto compute_commandGraph = clouds->createCloudMapGraph(window, mainViewDependent, time);
 
         // set up the render graph
         //auto renderGraph = vsg::createRenderGraphForView(window, camera, vsg_scene, VK_SUBPASS_CONTENTS_INLINE, false);
@@ -186,7 +186,7 @@ int main(int argc, char** argv)
         renderGraph->setClearValues({{0.0f, 0.0f, 0.0f, 1.0f}});
 
         auto grahics_commandGraph = vsg::CommandGraph::create(window, renderGraph);
-        viewer->assignRecordAndSubmitTaskAndPresentation({grahics_commandGraph, compute_commandGraph});
+        viewer->assignRecordAndSubmitTaskAndPresentation({grahics_commandGraph});
 
         viewer->compile();
 
