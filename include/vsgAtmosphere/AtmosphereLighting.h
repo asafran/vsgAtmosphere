@@ -11,15 +11,14 @@ namespace atmosphere {
     class AtmosphereLighting : public vsg::Inherit<vsg::ViewDependentState, AtmosphereLighting>
     {
     public:
-        AtmosphereLighting(vsg::ref_ptr<vsg::View> view, vsg::ref_ptr<AtmosphereRuntime> in_atmosphereRuntime);
+        AtmosphereLighting(vsg::ref_ptr<vsg::View> in_view, vsg::ref_ptr<AtmosphereRuntime> in_atmosphereRuntime);
 
         vsg::ref_ptr<AtmosphereRuntime> atmosphereRuntime;
 
         double exposure = 10.0;
 
-        void bindDescriptorSets(vsg::CommandBuffer& commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet) override;
-        void compile(vsg::Context& context) override;
-
+        void traverse(vsg::Visitor& visitor) override { ViewDependentState::traverse(visitor); atmosphereRuntime->accept(visitor); }
+        void traverse(vsg::ConstVisitor& visitor) const override { ViewDependentState::traverse(visitor); atmosphereRuntime->accept(visitor); }
         void traverse(vsg::RecordTraversal& rt) const override;
 
     protected:
@@ -29,10 +28,7 @@ namespace atmosphere {
     class SkyLighting : public vsg::Inherit<AtmosphereLighting, SkyLighting>
     {
     public:
-        SkyLighting(vsg::ref_ptr<vsg::View> view, vsg::ref_ptr<AtmosphereRuntime> in_atmosphereRuntime);
-
-        void bindDescriptorSets(vsg::CommandBuffer& commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet) override;
-        void compile(vsg::Context& context) override;
+        SkyLighting(vsg::ref_ptr<vsg::View> in_view, vsg::ref_ptr<AtmosphereRuntime> in_atmosphereRuntime);
 
         void traverse(vsg::RecordTraversal& rt) const override;
 

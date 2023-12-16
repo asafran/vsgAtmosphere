@@ -10,6 +10,8 @@ namespace atmosphere {
         : atmosphereBinding(atmosphere)
         , cloudsBinding(clouds)
     {
+        positionalBinding = PositionalBinding::create();
+        inversePositionalBinding = PositionalBinding::create();
     }
 
     AtmosphereRuntime::AtmosphereRuntime()
@@ -60,13 +62,14 @@ namespace atmosphere {
         shaderSet->addDescriptorBinding("viewportData", "", VIEW_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Value::create(0,0, 1280, 1024));
         shaderSet->addDescriptorBinding("shadowMaps", "", VIEW_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
 
-        shaderSet->addDescriptorBinding("transmittanceTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->transmittanceTexture->data);
-        shaderSet->addDescriptorBinding("irradianceTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->irradianceTexture->data);
-        shaderSet->addDescriptorBinding("scatteringTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->scatteringTexture->data);
-        shaderSet->addDescriptorBinding("singleMieScatteringTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->singleMieScatteringTexture->data);
+        shaderSet->addDescriptorBinding("transmittanceTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("irradianceTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("scatteringTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("singleMieScatteringTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
-        shaderSet->addDescriptorBinding("settings", "", ATMOSHPERE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->settings);
-        shaderSet->addDescriptorBinding("positional", "", ATMOSHPERE_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->positional);
+        shaderSet->addDescriptorBinding("settings", "", ATMOSHPERE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+
+        shaderSet->addDescriptorBinding("positional", "", POSITIONAL_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
         // additional defines
         shaderSet->optionalDefines = {"VSG_GREYSACLE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_POINT_SPRITE"};
@@ -79,6 +82,7 @@ namespace atmosphere {
         shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_BILLBOARD"}, vsg::BillboardArrayState::create()});
 
         shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
+        shaderSet->customDescriptorSetBindings.push_back(positionalBinding);
         shaderSet->customDescriptorSetBindings.push_back(atmosphereBinding);
 
         phongShaderSet = shaderSet;
@@ -129,13 +133,14 @@ namespace atmosphere {
         shaderSet->addDescriptorBinding("viewportData", "", VIEW_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Value::create(0,0, 1280, 1024));
         shaderSet->addDescriptorBinding("shadowMaps", "", VIEW_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
 
-        shaderSet->addDescriptorBinding("transmittanceTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->transmittanceTexture->data);
-        shaderSet->addDescriptorBinding("irradianceTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->irradianceTexture->data);
-        shaderSet->addDescriptorBinding("scatteringTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->scatteringTexture->data);
-        shaderSet->addDescriptorBinding("singleMieScatteringTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->singleMieScatteringTexture->data);
+        shaderSet->addDescriptorBinding("transmittanceTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("irradianceTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("scatteringTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("singleMieScatteringTexture", "", ATMOSHPERE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
-        shaderSet->addDescriptorBinding("settings", "", ATMOSHPERE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->settings);
-        shaderSet->addDescriptorBinding("positional", "", ATMOSHPERE_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->positional);
+        shaderSet->addDescriptorBinding("settings", "", ATMOSHPERE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+
+        shaderSet->addDescriptorBinding("positional", "", POSITIONAL_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
         // additional defines
         shaderSet->optionalDefines = {"VSG_GREYSCALE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_WORKFLOW_SPECGLOSS"};
@@ -148,6 +153,7 @@ namespace atmosphere {
         shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_BILLBOARD"}, vsg::BillboardArrayState::create()});
 
         shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
+        shaderSet->customDescriptorSetBindings.push_back(positionalBinding);
         shaderSet->customDescriptorSetBindings.push_back(atmosphereBinding);
 
         pbrShaderSet = shaderSet;
@@ -172,27 +178,28 @@ namespace atmosphere {
 
         auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
 
-        shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+        shaderSet->addDescriptorBinding("s_Transmittance", "", ATMOSHPERE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("s_Irradiance", "", ATMOSHPERE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("s_Scattering", "", ATMOSHPERE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("s_SingleMieScattering", "", ATMOSHPERE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
-        shaderSet->addDescriptorBinding("s_Transmittance", "", ATMOSHPERE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->transmittanceTexture->data);
-        shaderSet->addDescriptorBinding("s_Irradiance", "", ATMOSHPERE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->irradianceTexture->data);
-        shaderSet->addDescriptorBinding("s_Scattering", "", ATMOSHPERE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->scatteringTexture->data);
-        shaderSet->addDescriptorBinding("s_SingleMieScattering", "", ATMOSHPERE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->singleMieScatteringTexture->data);
+        shaderSet->addDescriptorBinding("settings", "", ATMOSHPERE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
-        shaderSet->addDescriptorBinding("settings", "", ATMOSHPERE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->settings);
-        shaderSet->addDescriptorBinding("positional", "", ATMOSHPERE_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, atmosphereBinding->positional);
+        shaderSet->addDescriptorBinding("positional", "", POSITIONAL_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
-        shaderSet->addDescriptorBinding("s_ShapeNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, cloudsBinding->shapeNoiseTexture->data);
-        shaderSet->addDescriptorBinding("s_DetailNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, cloudsBinding->detailNoiseTexture->data);
-        shaderSet->addDescriptorBinding("s_BlueNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, cloudsBinding->blueNoiseTexture->data);
-        shaderSet->addDescriptorBinding("s_CurlNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, cloudsBinding->curlNoiseTexture->data);
+        shaderSet->addDescriptorBinding("s_ShapeNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("s_DetailNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("s_BlueNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("s_CurlNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
-        shaderSet->addDescriptorBinding("clouds", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, cloudsBinding->settings);
+        shaderSet->addDescriptorBinding("clouds", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
         shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
 
         shaderSet->customDescriptorSetBindings.push_back(atmosphereBinding);
-        shaderSet->customDescriptorSetBindings.push_back(cloudsBinding);
+        shaderSet->customDescriptorSetBindings.push_back(inversePositionalBinding);
+        if(cloudsBinding)
+            shaderSet->customDescriptorSetBindings.push_back(cloudsBinding);
 
         skyShaderSet = shaderSet;
 
@@ -375,20 +382,12 @@ namespace atmosphere {
 
     vsg::ref_ptr<vsg::Node> AtmosphereRuntime::createSky()
     {
-        auto vid = vsg::VertexIndexDraw::create();
-
-        auto vertices = vsg::vec2Array::create({
-                                                {-1.0f, -1.0f},
-                                                {1.0f, -1.0f},
-                                                {-1.0f, 1.0f},
-                                                {1.0f, 1.0f}});
+        auto drawCommands = vsg::Commands::create();
 
         auto indices = vsg::ushortArray::create({0, 2, 1, 1, 2, 3});
 
-        vid->assignArrays(vsg::DataList{vertices});
-        vid->assignIndices(indices);
-        vid->indexCount = static_cast<uint32_t>(indices->size());
-        vid->instanceCount = 1;
+        drawCommands->addChild(vsg::BindIndexBuffer::create(indices));
+        drawCommands->addChild(vsg::DrawIndexed::create(indices->size(), 1, 0, 0, 0));
 
         auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(skyShaderSet);
 
@@ -400,10 +399,9 @@ namespace atmosphere {
         graphicsPipelineConfig->enableTexture("s_SingleMieScattering");
 
         graphicsPipelineConfig->enableDescriptor("settings");
+
         graphicsPipelineConfig->enableDescriptor("positional");
 */
-        graphicsPipelineConfig->enableArray("vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, 12);
-
         if (cloudsBinding)
         {
             defines.insert("ATMOSHPERE_CLOUDS");
@@ -415,6 +413,22 @@ namespace atmosphere {
 */
         }
 
+        struct SetPipelineStates : public vsg::Visitor
+        {
+            void apply(Object& object) override
+            {
+                object.traverse(*this);
+            }
+
+            void apply(vsg::DepthStencilState& dss) override
+            {
+                dss.depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
+            }
+        };
+        SetPipelineStates sps;
+
+        graphicsPipelineConfig->accept(sps);
+
         graphicsPipelineConfig->init();
 
         vsg::StateCommands stateCommands;
@@ -424,7 +438,7 @@ namespace atmosphere {
             auto stateGroup = vsg::StateGroup::create();
             stateGroup->stateCommands.swap(stateCommands);
             stateGroup->prototypeArrayState = graphicsPipelineConfig->getSuitableArrayState();
-            stateGroup->addChild(vid);
+            stateGroup->addChild(drawCommands);
             return stateGroup;
         }
         return {};

@@ -98,7 +98,7 @@ layout(set = ATMOSHPERE_DESCRIPTOR_SET, binding = 4, std140) uniform Settings
 	vec2 sunSize;
 } settings;
 
-layout(set = ATMOSHPERE_DESCRIPTOR_SET, binding = 5, std140) uniform Positional
+layout(set = POSITIONAL_DESCRIPTOR_SET, binding = 0, std140) uniform Positional
 {
 	vec4 sunDirectionExp;
     vec4 cameraPos;

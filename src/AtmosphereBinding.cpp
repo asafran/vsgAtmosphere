@@ -1,10 +1,46 @@
 #include "AtmosphereBinding.h"
+#include "vsg/state/BindDescriptorSet.h"
 #include "vsg/state/Descriptor.h"
 #include "vsg/state/DescriptorBuffer.h"
 #include "vsg/state/DescriptorImage.h"
 #include "vsg/state/DescriptorSet.h"
 
 namespace atmosphere {
+
+    PositionalBinding::PositionalBinding(uint32_t in_set)
+        : Inherit(in_set)
+    {
+        vsg::DescriptorSetLayoutBindings descriptorBindings{{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
+        descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
+
+        positional = vsg::Value<Positional>::create();
+        positional->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
+    }
+
+    int PositionalBinding::compare(const Object &rhs) const
+    {
+        return CustomDescriptorSetBinding::compare(rhs);
+    }
+
+    bool PositionalBinding::compatibleDescriptorSetLayout(const vsg::DescriptorSetLayout &dsl) const
+    {
+        return descriptorSetLayout->compare(dsl) == 0;
+    }
+
+    vsg::ref_ptr<vsg::DescriptorSetLayout> PositionalBinding::createDescriptorSetLayout()
+    {
+        return descriptorSetLayout;
+    }
+
+    vsg::ref_ptr<vsg::StateCommand> PositionalBinding::createStateCommand(vsg::ref_ptr<vsg::PipelineLayout> layout)
+    {
+        if(!bindDescriptorSet)
+        {
+            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{{vsg::DescriptorBuffer::create(positional)}});
+            bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, set, descriptorSet);
+        }
+        return bindDescriptorSet;
+    }
 
     AtmosphereBinding::AtmosphereBinding(uint32_t in_set)
         : Inherit(in_set)
@@ -19,9 +55,7 @@ namespace atmosphere {
         descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
 
         settings = vsg::Value<RuntimeSettings>::create();
-        settings->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
-        positional = vsg::Value<Positional>::create(Positional{{1.0, 0.0, 1.0, 0.0},{0.0, 1.0, 0.0, 1.0}});
-        positional->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
+        settings->properties.dataVariance = vsg::DYNAMIC_DATA;
     }
 
     int AtmosphereBinding::compare(const Object &rhs) const
@@ -57,24 +91,19 @@ namespace atmosphere {
 
     vsg::ref_ptr<vsg::StateCommand> AtmosphereBinding::createStateCommand(vsg::ref_ptr<vsg::PipelineLayout> layout)
     {
-        return {};
-    }
-
-    vsg::ref_ptr<vsg::DescriptorSet> AtmosphereBinding::createDescriptorSet()
-    {
-        if(!descriptorSet)
+        if(!bindDescriptorSet)
         {
             vsg::Descriptors descriptors{
                 {vsg::DescriptorImage::create(transmittanceTexture->imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)},
                 {vsg::DescriptorImage::create(irradianceTexture->imageInfo, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)},
                 {vsg::DescriptorImage::create(scatteringTexture->imageInfo, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)},
                 {vsg::DescriptorImage::create(singleMieScatteringTexture->imageInfo, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)},
-                {vsg::DescriptorBuffer::create(settings, 4, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)},
-                {vsg::DescriptorBuffer::create(positional, 5, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)},
+                {vsg::DescriptorBuffer::create(settings, 4, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)}
             };
-            descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
+            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
+            bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, set, descriptorSet);
         }
-        return descriptorSet;
+        return bindDescriptorSet;
     }
 
     CloudsBinding::CloudsBinding(uint32_t in_set)
@@ -127,12 +156,7 @@ namespace atmosphere {
 
     vsg::ref_ptr<vsg::StateCommand> CloudsBinding::createStateCommand(vsg::ref_ptr<vsg::PipelineLayout> layout)
     {
-        return {};
-    }
-
-    vsg::ref_ptr<vsg::DescriptorSet> CloudsBinding::createDescriptorSet()
-    {
-        if(!descriptorSet)
+        if(!bindDescriptorSet)
         {
             vsg::Descriptors descriptors{
                 {vsg::DescriptorImage::create(shapeNoiseTexture->imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)},
@@ -141,8 +165,9 @@ namespace atmosphere {
                 {vsg::DescriptorImage::create(curlNoiseTexture->imageInfo, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)},
                 {vsg::DescriptorBuffer::create(settings, 4, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)}
             };
-            descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
+            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
+            bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, set, descriptorSet);
         }
-        return descriptorSet;
+        return bindDescriptorSet;
     }
 }

@@ -38,6 +38,9 @@ namespace atmosphere {
         vsg::ref_ptr<AtmosphereBinding> atmosphereBinding;
         vsg::ref_ptr<CloudsBinding> cloudsBinding;
 
+        vsg::ref_ptr<PositionalBinding> positionalBinding;
+        vsg::ref_ptr<PositionalBinding> inversePositionalBinding;
+
         vsg::dvec3 sunDirection = {0.0, std::sin(vsg::PI), std::cos(vsg::PI)};
 
         void setSunAngle(double radians);

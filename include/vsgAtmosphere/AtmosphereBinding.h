@@ -5,6 +5,7 @@
 #include "AtmosphereImage.h"
 
 #include <vsg/utils/ShaderSet.h>
+#include <vsg/state/DescriptorSet.h>
 
 namespace atmosphere {
 
@@ -33,6 +34,24 @@ namespace atmosphere {
         vsg::vec4 cameraPos;
     };
 
+    class PositionalBinding : public vsg::Inherit<vsg::CustomDescriptorSetBinding, PositionalBinding>
+    {
+    public:
+        PositionalBinding(uint32_t in_set = POSITIONAL_DESCRIPTOR_SET);
+
+        int compare(const Object& rhs) const override;
+
+        vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout;
+        vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
+
+        bool compatibleDescriptorSetLayout(const vsg::DescriptorSetLayout& dsl) const override;
+        vsg::ref_ptr<vsg::DescriptorSetLayout> createDescriptorSetLayout() override;
+
+        vsg::ref_ptr<vsg::StateCommand> createStateCommand(vsg::ref_ptr<vsg::PipelineLayout> layout) override;
+
+        vsg::ref_ptr<vsg::Value<Positional>> positional;
+    };
+
     class AtmosphereBinding : public vsg::Inherit<vsg::CustomDescriptorSetBinding, AtmosphereBinding>
     {
     public:
@@ -44,13 +63,12 @@ namespace atmosphere {
         void write(vsg::Output& output) const override;
 
         vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout;
-        vsg::ref_ptr<vsg::DescriptorSet> descriptorSet;
+        vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
 
         bool compatibleDescriptorSetLayout(const vsg::DescriptorSetLayout& dsl) const override;
         vsg::ref_ptr<vsg::DescriptorSetLayout> createDescriptorSetLayout() override;
 
         vsg::ref_ptr<vsg::StateCommand> createStateCommand(vsg::ref_ptr<vsg::PipelineLayout> layout) override;
-        vsg::ref_ptr<vsg::DescriptorSet> createDescriptorSet();
 
         vsg::ref_ptr<Image> transmittanceTexture;
         vsg::ref_ptr<Image> irradianceTexture;
@@ -58,7 +76,6 @@ namespace atmosphere {
         vsg::ref_ptr<Image> singleMieScatteringTexture;
 
         vsg::ref_ptr<vsg::Value<RuntimeSettings>> settings;
-        vsg::ref_ptr<vsg::Value<Positional>> positional;
     };
 
     struct CloudRuntimeSettings
@@ -145,13 +162,12 @@ namespace atmosphere {
         void write(vsg::Output& output) const override;
 
         vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout;
-        vsg::ref_ptr<vsg::DescriptorSet> descriptorSet;
+        vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
 
         bool compatibleDescriptorSetLayout(const vsg::DescriptorSetLayout& dsl) const override;
         vsg::ref_ptr<vsg::DescriptorSetLayout> createDescriptorSetLayout() override;
 
         vsg::ref_ptr<vsg::StateCommand> createStateCommand(vsg::ref_ptr<vsg::PipelineLayout> layout) override;
-        vsg::ref_ptr<vsg::DescriptorSet> createDescriptorSet();
 
         vsg::ref_ptr<Image> shapeNoiseTexture;
         vsg::ref_ptr<Image> detailNoiseTexture;

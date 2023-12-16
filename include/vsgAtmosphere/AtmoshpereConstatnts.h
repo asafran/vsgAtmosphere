@@ -135,10 +135,11 @@ constexpr double XYZ_TO_SRGB[9] = {
 
 // Descriptor Sets
 
-    constexpr int VIEW_DESCRIPTOR_SET = 3;
-    constexpr int MATERIAL_DESCRIPTOR_SET = 2;
-    constexpr int ATMOSHPERE_DESCRIPTOR_SET = 0;
-    constexpr int CLOUDS_DESCRIPTOR_SET = 1;
+    constexpr int VIEW_DESCRIPTOR_SET = 1;
+    constexpr int MATERIAL_DESCRIPTOR_SET = 0;
+    constexpr int ATMOSHPERE_DESCRIPTOR_SET = VIEW_DESCRIPTOR_SET + 1;
+    constexpr int POSITIONAL_DESCRIPTOR_SET = ATMOSHPERE_DESCRIPTOR_SET + 1;
+    constexpr int CLOUDS_DESCRIPTOR_SET = POSITIONAL_DESCRIPTOR_SET + 1;
 
 //Paths and filenames
 
