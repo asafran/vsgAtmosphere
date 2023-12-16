@@ -11,11 +11,6 @@ class Image : public vsg::Inherit<vsg::Object, Image>
     {
     public:
         Image(VkExtent3D extent, vsg::ref_ptr<vsg::Sampler> sampler = {}, VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT);
-<<<<<<< Updated upstream
-        Image();
-        virtual ~Image();
-
-=======
         Image(vsg::ref_ptr<vsg::Data> in_data, vsg::ref_ptr<vsg::Sampler> sampler = {});
         Image();
         virtual ~Image();
@@ -25,7 +20,6 @@ class Image : public vsg::Inherit<vsg::Object, Image>
         void read(vsg::Input& input) override;
         void write(vsg::Output& output) const override;
 
->>>>>>> Stashed changes
         vsg::ref_ptr<vsg::ImageInfo> imageInfo;
         vsg::ref_ptr<vsg::Data> data;
 
@@ -38,10 +32,7 @@ class Image : public vsg::Inherit<vsg::Object, Image>
     };
 
 }
-<<<<<<< Updated upstream
-=======
 
 EVSG_type_name(atmosphere::Image)
 
->>>>>>> Stashed changes
 #endif // ATMOSPHEREIMAGE_H

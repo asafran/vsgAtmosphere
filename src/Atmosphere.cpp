@@ -9,108 +9,6 @@
 
 namespace atmosphere {
 
-<<<<<<< Updated upstream
-
-void AtmosphereData::read(vsg::Input &input)
-{
-    input.read("cubeSize", cubeSize);
-    input.read("numViewerThreads", numViewerThreads);
-
-    input.read("lengthUnitInMeters", lengthUnitInMeters);
-/*
-    input.readObject("transmittanceData", transmittanceData);
-    input.readObject("irradianceData", irradianceData);
-    input.readObject("scatteringData", scatteringData);
-    input.readObject("singleMieScatteringData", singleMieScatteringData);
-
-    auto sampler = vsg::Sampler::create();
-    transmittanceTexture = vsg::ImageInfo::create(sampler, transmittanceData);
-    irradianceTexture = vsg::ImageInfo::create(sampler, irradianceData);
-    scatteringTexture = vsg::ImageInfo::create(sampler, scatteringData);
-    singleMieScatteringTexture = vsg::ImageInfo::create(sampler, singleMieScatteringData);
-*/
-    input.readObject("reflectionMapShader", reflectionMapShader);
-    input.readObject("environmentMapShader", environmentMapShader);
-    input.readObject("phongShaderSet", phongShaderSet);
-    input.readObject("pbrShaderSet", pbrShaderSet);
-
-    input.readObject("ellipsoidModel", ellipsoidModel);
-
-    auto runtime = input.readValue<RuntimeSettings>("runtimeSettings");
-
-    runtimeSettings = vsg::Value<RuntimeSettings>::create(runtime);
-    runtimeSettings->properties.dataVariance = vsg::DYNAMIC_DATA;
-}
-
-void AtmosphereData::write(vsg::Output &output) const
-{
-    output.write("cubeSize", cubeSize);
-    output.write("numViewerThreads", numViewerThreads);
-
-    output.write("lengthUnitInMeters", lengthUnitInMeters);
-/*
-    output.writeObject("transmittanceData", transmittanceData);
-    output.writeObject("irradianceData", irradianceData);
-    output.writeObject("scatteringData", scatteringData);
-    output.writeObject("singleMieScatteringData", singleMieScatteringData);
-
-    output.writeObject("reflectionMapShader", reflectionMapShader);
-    output.writeObject("environmentMapShader", environmentMapShader);
-    output.writeObject("phongShaderSet", phongShaderSet);
-    output.writeObject("pbrShaderSet", pbrShaderSet);
-*/
-    output.writeObject("ellipsoidModel", ellipsoidModel);
-
-    output.write("runtimeSettings", runtimeSettings->value());
-}
-
-void AtmosphereData::setSunAngle(double radians)
-{
-    sunDirection = {0.0, std::sin(radians + vsg::PI), std::cos(radians + vsg::PI)};
-}
-
-void AtmosphereData::setDate(tm time)
-{
-    // Set time(s) relative to the J2000.0 epoch
-    //fractionalDay = 367 * y - 7 * (y + (m + 9) \ 12) \ 4 + 275 * m \ 9 + d - 730531.5 + h / 24
-    auto fractionalDay = day2000(time);
-    // Mean longitude of the Sun
-    auto meanLongitudeSunDegrees = 280.4606184 + ((36000.77005361 / 36525) * fractionalDay); //(degrees)
-    // Mean anomaly of the Sun
-    auto meanAnomalySunDegrees = 357.5277233 +
-            ((35999.05034 / 36525) * fractionalDay); //(degrees)
-    auto meanAnomalySunRadians = meanAnomalySunDegrees * vsg::PI / 180;
-    // Ecliptic longitude of the Sun
-    auto eclipticLongitudeSunDegrees = meanLongitudeSunDegrees +
-            (1.914666471 * sin(meanAnomalySunRadians)) +
-            (0.918994643 * sin(2 * meanAnomalySunRadians)); //(degrees)
-    auto eclipticLongitudeSunRadians = eclipticLongitudeSunDegrees * vsg::PI / 180;
-    // Obliquity of the ecliptic plane formula mostly derived from:
-    // https://en.wikipedia.org/wiki/Ecliptic#Obliquity_of_the_ecliptic
-    auto epsilonDegrees = // Formula deals with time denominated in centuries
-            23.43929 - ((46.8093 / 3600) * fractionalDay / 36525);  //(degrees)
-    auto epsilonRadians = epsilonDegrees * vsg::PI / 180;
-
-    vsg::dvec3 direction{cos(eclipticLongitudeSunRadians),
-                cos(epsilonRadians) * sin(eclipticLongitudeSunRadians),
-                sin(epsilonRadians) * sin(eclipticLongitudeSunRadians)};
-
-    sunDirection = direction;
-}
-
-void AtmosphereData::copyData(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice)
-{
-    auto commands = vsg::Commands::create();
-    commands->addChild(transmittanceTexture->copyData(device));
-    commands->addChild(irradianceTexture->copyData(device));
-    commands->addChild(scatteringTexture->copyData(device));
-    commands->addChild(singleMieScatteringTexture->copyData(device));
-
-    auto fence = vsg::Fence::create(device);
-    auto queueFamilyIndex = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
-    auto commandPool = vsg::CommandPool::create(device, queueFamilyIndex);
-    auto queue = device->getQueue(queueFamilyIndex);
-=======
 void AtmosphereGenerator::copyData()
 {
     auto commands = vsg::Commands::create();
@@ -123,137 +21,21 @@ void AtmosphereGenerator::copyData()
     auto queueFamilyIndex = _physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
     auto commandPool = vsg::CommandPool::create(_device, queueFamilyIndex);
     auto queue = _device->getQueue(queueFamilyIndex);
->>>>>>> Stashed changes
 
     vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
         commands->record(commandBuffer);
     });
 
-<<<<<<< Updated upstream
-    transmittanceTexture->mapData(device);
-    irradianceTexture->mapData(device);
-    scatteringTexture->mapData(device);
-    singleMieScatteringTexture->mapData(device);
-}
-
-Clouds::Clouds(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options)
-    : _device(device)
-    , _physicalDevice(physicalDevice)
-    , _options(options)
-{
-
-}
-
-Clouds::~Clouds()
-{
-
-}
-
-void Clouds::initialize(int noiseSize)
-{
-    /*
-    auto noise = vsg::Commands::create();
-
-    {
-        auto texturesSet = bindDetailNoise();
-        auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{texturesSet->setLayout}, vsg::PushConstantRanges{});
-        auto bindPipeline = bindCompute(std::string(detailNoiseShader), pipelineLayout);
-        auto bindTextures = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, texturesSet);
-        noise->addChild(bindPipeline);
-        noise->addChild(bindTextures);
-        auto size = uint32_t(ceil(float(detailNoiseSize) / float(numThreads)));
-        noise->addChild(vsg::Dispatch::create(size, size, size));
-    }
-
-    {
-        auto texturesSet = bindShapeNoise();
-        auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{texturesSet->setLayout}, vsg::PushConstantRanges{});
-        auto bindPipeline = bindCompute(std::string(shapeNoiseShader), pipelineLayout);
-        auto bindTextures = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, texturesSet);
-        noise->addChild(bindPipeline);
-        noise->addChild(bindTextures);
-        auto size = uint32_t(ceil(float(shapeNoiseSize) / float(numThreads)));
-        noise->addChild(vsg::Dispatch::create(size, size, size));
-    }
-
-    // compile the Vulkan objects
-    auto compileTraversal = vsg::CompileTraversal::create(_device);
-    auto context = compileTraversal->contexts.front();
-    noise->accept(*compileTraversal);
-
-
-    vsg::submitCommandsToQueue(context->commandPool, fence, 100000000000, computeQueue, [&](vsg::CommandBuffer& commandBuffer) {
-        noise->record(commandBuffer);
-    });*/
-}
-
-void Clouds::read(vsg::Input &input)
-{
-
-}
-
-void Clouds::write(vsg::Output &output) const
-{
-
-}
-
-void Clouds::generateTextures()
-{
-
-}
-
-vsg::ref_ptr<vsg::DescriptorSet> Clouds::bindDetailNoise() const
-{
-
-}
-
-vsg::ref_ptr<vsg::DescriptorSet> Clouds::bindShapeNoise() const
-{
-
-=======
     _transmittanceTexture->mapData(_device);
     _irradianceTexture->mapData(_device);
     _scatteringTexture->mapData(_device);
     _singleMieScatteringTexture->mapData(_device);
->>>>>>> Stashed changes
 }
 
 /*
 vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::Options> options)
 {
-<<<<<<< Updated upstream
-    auto clouds = Clouds::create();
-    try {
 
-        clouds->curlNoiseData = vsg::read_cast<vsg::Data>(path / std::string(curlNoiseTextureName), options);
-        clouds->blueNoiseData = vsg::read_cast<vsg::Data>(path / std::string(blueNoiseTextureName), options);
-
-        clouds->shapeNoiseData = vsg::read_cast<vsg::Data>(path / std::string(shapeNoiseTextureName), options);
-        clouds->detailNoiseData = vsg::read_cast<vsg::Data>(path / std::string(detailNoiseTextureName), options);
-
-        clouds->shapeNoiseData = convertArray(clouds->shapeNoiseData);
-        clouds->detailNoiseData = convertArray(clouds->detailNoiseData);
-        if(!clouds->shapeNoiseData || !clouds->detailNoiseData)
-        {
-            vsg::error("Incompatible shape noise or detail noise data.");
-            return {};
-        }
-
-        clouds->shader = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", std::string(cloudMapShader), options);
-        clouds->shader->specializationConstants = {{1, vsg::intValue::create(32)}, {2, vsg::intValue::create(1024)}};
-        clouds->shader->module->hints = vsg::ShaderCompileSettings::create();
-        clouds->shader->module->hints->generateDebugInfo = true;
-
-        clouds->settings = vsg::Value<CloudSettings>::create();
-        clouds->settings->properties.dataVariance = vsg::DYNAMIC_DATA;
-    } catch (vsg::Exception) {
-        vsg::error("Could not load clouds data.");
-        return {};
-    }
-    return clouds;
-=======
-
->>>>>>> Stashed changes
 }
 */
 AtmosphereModelSettings::AtmosphereModelSettings(vsg::ref_ptr<vsg::EllipsoidModel> model)
@@ -710,11 +492,7 @@ vsg::vec3 AtmosphereGenerator::convertSpectrumToLinearSrgb(double c)
     return {static_cast<float>(r), static_cast<float>(g), static_cast<float>(b)};
 }
 
-<<<<<<< Updated upstream
-vsg::ref_ptr<AtmosphereData> AtmosphereGenerator::loadData()
-=======
 vsg::ref_ptr<AtmosphereBinding> AtmosphereGenerator::loadData()
->>>>>>> Stashed changes
 {
     auto atmosphereBinding = AtmosphereBinding::create();
     atmosphereBinding->transmittanceTexture = _transmittanceTexture;
@@ -725,41 +503,6 @@ vsg::ref_ptr<AtmosphereBinding> AtmosphereGenerator::loadData()
     return atmosphereBinding;
 }
 
-<<<<<<< Updated upstream
-    runtimeData->ellipsoidModel = _settings->ellipsoidModel;
-
-    runtimeData->reflectionMapShader = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", "shaders/scattering/reflection_map.glsl", _options);
-
-    if (!runtimeData->reflectionMapShader)
-    {
-        vsg::error("Could not find shaders.");
-        return {};
-    }
-    {
-        auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", std::string(skyVertShader), _options);
-        auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", std::string(skyFragShader), _options);
-        if (!vertexShader || !fragmentShader)
-        {
-            vsg::error("Could not find sky shaders.");
-            return {};
-        }
-
-        runtimeData->skyShader = {vertexShader, fragmentShader};
-
-        fragmentShader->specializationConstants = _renderConstants;
-        vertexShader->module->hints = compileSettings;
-        fragmentShader->module->hints = compileSettings;
-    }
-
-
-
-    runtimeData->phongShaderSet = createPhongShaderSet();
-
-    RuntimeSettings settings{vsg::vec4(convertSpectrumToLinearSrgb(3.0), 0.0f), {std::tan(_settings->sunAngularRadius), std::cos(_settings->sunAngularRadius)}};
-    runtimeData->runtimeSettings = vsg::Value<atmosphere::RuntimeSettings>::create(settings);
-    runtimeData->runtimeSettings->properties.dataVariance = vsg::DYNAMIC_DATA;
-
-=======
 vsg::ref_ptr<AtmosphereRuntime> AtmosphereGenerator::createRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<CloudsBinding> clouds)
 {
     auto runtimeData = AtmosphereRuntime::create(atmosphere, clouds);
@@ -768,7 +511,6 @@ vsg::ref_ptr<AtmosphereRuntime> AtmosphereGenerator::createRuntime(vsg::ref_ptr<
 
     runtimeData->ellipsoidModel = _settings->ellipsoidModel;
     runtimeData->atmosphereBinding->settings->value() = {vsg::vec4(convertSpectrumToLinearSrgb(3.0), 0.0f), {std::tan(_settings->sunAngularRadius), std::cos(_settings->sunAngularRadius)}};
->>>>>>> Stashed changes
     runtimeData->lengthUnitInMeters = _settings->lengthUnitInMeters;
 
     return runtimeData;
@@ -776,234 +518,6 @@ vsg::ref_ptr<AtmosphereRuntime> AtmosphereGenerator::createRuntime(vsg::ref_ptr<
 
 void AtmosphereGenerator::generateTextures()
 {
-<<<<<<< Updated upstream
-    if(!reflectionMap)
-        reflectionMap = createCubemap(cubeSize);
-
-    vsg::DescriptorSetLayoutBindings descriptorBindings{
-        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}
-    };
-    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-
-    vsg::PushConstantRanges pushConstantRanges{
-        {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vsg::vec4)}
-    };
-
-    auto settingsBuffer = vsg::DescriptorBuffer::create(runtimeSettings, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    auto transmittance = vsg::DescriptorImage::create(transmittanceTexture->imageInfo, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto irradiance = vsg::DescriptorImage::create(irradianceTexture->imageInfo, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto scattering = vsg::DescriptorImage::create(scatteringTexture->imageInfo, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto singleMie = vsg::DescriptorImage::create(singleMieScatteringTexture->imageInfo, 4, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-    auto cubemap = vsg::DescriptorImage::create(reflectionMap, 5, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-
-    auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, pushConstantRanges);
-
-    vsg::Descriptors descriptors{settingsBuffer, transmittance, irradiance, scattering, singleMie, cubemap};
-    auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
-    auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
-
-    auto pushCamera = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, camera);
-
-    // set up the compute pipeline
-    auto pipeline = vsg::ComputePipeline::create(pipelineLayout, reflectionMapShader);
-    auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
-
-    auto preCopyBarrier = vsg::ImageMemoryBarrier::create();
-    preCopyBarrier->srcAccessMask = 0;
-    preCopyBarrier->dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    preCopyBarrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    preCopyBarrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    preCopyBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    preCopyBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    preCopyBarrier->image = reflectionMap->imageView->image;
-    preCopyBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    preCopyBarrier->subresourceRange.baseArrayLayer = 0;
-    preCopyBarrier->subresourceRange.layerCount = 6;
-    preCopyBarrier->subresourceRange.levelCount = 1;
-    preCopyBarrier->subresourceRange.baseMipLevel = 0;
-
-    auto preCopyBarrierCmd = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, preCopyBarrier);
-
-    auto postCopyBarrier = vsg::ImageMemoryBarrier::create();
-    postCopyBarrier->srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    postCopyBarrier->dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    postCopyBarrier->oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-    postCopyBarrier->newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    postCopyBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    postCopyBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    postCopyBarrier->image = reflectionMap->imageView->image;
-    postCopyBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    postCopyBarrier->subresourceRange.baseArrayLayer = 0;
-    postCopyBarrier->subresourceRange.layerCount = 6;
-    postCopyBarrier->subresourceRange.levelCount = 1;
-    postCopyBarrier->subresourceRange.baseMipLevel = 0;
-
-    auto postCopyBarrierCmd = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, postCopyBarrier);
-
-    int computeQueueFamily = window->getOrCreatePhysicalDevice()->getQueueFamily(VK_QUEUE_COMPUTE_BIT);
-    auto compute_commandGraph = vsg::CommandGraph::create(window->getOrCreateDevice(), computeQueueFamily);
-
-    compute_commandGraph->addChild(preCopyBarrierCmd);
-    compute_commandGraph->addChild(bindPipeline);
-    compute_commandGraph->addChild(bindDescriptorSet);
-    compute_commandGraph->addChild(pushCamera);
-    auto workgroups = uint32_t(ceil(float(cubeSize) / float(numViewerThreads)));
-    compute_commandGraph->addChild(vsg::Dispatch::create(workgroups, workgroups, 6));
-    compute_commandGraph->addChild(postCopyBarrierCmd);
-
-    return compute_commandGraph;
-}
-
-vsg::ref_ptr<vsg::ShaderSet> AtmosphereGenerator::createPhongShaderSet()
-{
-    vsg::info("Local phong_ShaderSet(",_options,")");
-
-    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", "shaders/standard.vert", _options);
-    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", "shaders/scattering/phong_fs.glsl", _options);
-    fragmentShader->specializationConstants = _renderConstants;
-
-    if (!vertexShader || !fragmentShader)
-    {
-        vsg::error("phong_ShaderSet(...) could not find shaders.");
-        return {};
-    }
-
-    auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader}, compileSettings);
-
-    shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
-    shaderSet->addAttributeBinding("vsg_Normal", "", 1, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
-    shaderSet->addAttributeBinding("vsg_TexCoord0", "", 2, VK_FORMAT_R32G32_SFLOAT, vsg::vec2Array::create(1));
-    shaderSet->addAttributeBinding("vsg_Color", "", 3, VK_FORMAT_R32G32B32A32_SFLOAT, vsg::vec4Array::create(1));
-
-    shaderSet->addAttributeBinding("vsg_position", "VSG_INSTANCE_POSITIONS", 4, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
-    shaderSet->addAttributeBinding("vsg_position_scaleDistance", "VSG_BILLBOARD", 4, VK_FORMAT_R32G32B32A32_SFLOAT, vsg::vec4Array::create(1));
-
-    shaderSet->addUniformBinding("displacementMap", "VSG_DISPLACEMENT_MAP", 0, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT, vsg::vec4Array2D::create(1, 1));
-    shaderSet->addUniformBinding("diffuseMap", "VSG_DIFFUSE_MAP", 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1));
-    shaderSet->addUniformBinding("normalMap", "VSG_NORMAL_MAP", 0, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1));
-    shaderSet->addUniformBinding("aoMap", "VSG_LIGHTMAP_MAP", 0, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1));
-    shaderSet->addUniformBinding("emissiveMap", "VSG_EMISSIVE_MAP", 0, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1));
-    shaderSet->addUniformBinding("material", "", 0, 10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::PhongMaterialValue::create());
-    shaderSet->addUniformBinding("lightData", "", 1, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array::create(64));
-
-    shaderSet->addUniformBinding("transmittanceTexture", "", 1, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1));
-    shaderSet->addUniformBinding("irradianceTexture", "", 1, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1));
-    shaderSet->addUniformBinding("scatteringTexture", "", 1, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array3D::create(1, 1, 1));
-    shaderSet->addUniformBinding("singleMieScatteringTexture", "", 1, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array3D::create(1, 1, 1));
-
-    shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT, 0, 128);
-
-    shaderSet->optionalDefines = {"VSG_GREYSACLE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_POINT_SPRITE"};
-
-    shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_INSTANCE_POSITIONS", "VSG_DISPLACEMENT_MAP"}, vsg::PositionAndDisplacementMapArrayState::create()});
-    shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_INSTANCE_POSITIONS"}, vsg::PositionArrayState::create()});
-    shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_DISPLACEMENT_MAP"}, vsg::DisplacementMapArrayState::create()});
-    shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_BILLBOARD"}, vsg::BillboardArrayState::create()});
-
-    return shaderSet;
-}
-
-vsg::ref_ptr<vsg::Node> AtmosphereData::createSky(vsg::ref_ptr<vsg::DescriptorSetLayout> viewDescriptorSetLayout)
-{
-    vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout;
-    /*if(clouds)
-    {
-        vsg::DescriptorSetLayoutBindings descriptorBindings{
-            {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-            {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-            {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-            {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-            {4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
-        descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-    }
-    else*/
-        descriptorSetLayout = vsg::DescriptorSetLayout::create();
-
-    vsg::PushConstantRanges pushConstantRanges{
-        {VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128}
-    };
-
-    vsg::VertexInputState::Bindings vertexBindingsDescriptions{
-        VkVertexInputBindingDescription{0, sizeof(vsg::vec2), VK_VERTEX_INPUT_RATE_VERTEX}};
-
-    vsg::VertexInputState::Attributes vertexAttributeDescriptions{
-        VkVertexInputAttributeDescription{0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}};
-
-    auto depthState = vsg::DepthStencilState::create();
-    depthState->depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
-
-    vsg::GraphicsPipelineStates pipelineStates{
-        vsg::VertexInputState::create(vertexBindingsDescriptions, vertexAttributeDescriptions),
-        vsg::InputAssemblyState::create(),
-        vsg::RasterizationState::create(),
-        vsg::MultisampleState::create(),
-        vsg::ColorBlendState::create(),
-        depthState};
-
-
-    auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout, viewDescriptorSetLayout}, pushConstantRanges);
-    auto pipeline = vsg::GraphicsPipeline::create(pipelineLayout, skyShader, pipelineStates);
-    auto bindGraphicsPipeline = vsg::BindGraphicsPipeline::create(pipeline);
-    auto bindViewDescriptorSets = vsg::BindViewDescriptorSets::create(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1);
-
-    auto root = vsg::StateGroup::create();
-    root->add(bindGraphicsPipeline);
-    root->add(bindViewDescriptorSets);
-/*
-    if(clouds)
-    {
-        auto sampler = vsg::Sampler::create();
-        auto shapeNoise = vsg::DescriptorImage::create(sampler, clouds->shapeNoiseData, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        auto detailNoise = vsg::DescriptorImage::create(sampler, clouds->detailNoiseData, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        auto blueNoise = vsg::DescriptorImage::create(sampler, clouds->blueNoiseData, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        auto curlNoise = vsg::DescriptorImage::create(sampler, clouds->curlNoiseData, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        auto settings = vsg::DescriptorImage::create(sampler, clouds->settings, 4, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        vsg::Descriptors descriptors{shapeNoise, detailNoise, blueNoise, curlNoise, settings};
-        auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
-        auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, descriptorSet);
-        root->add(bindDescriptorSet);
-    }
-*/
-    auto vid = vsg::VertexIndexDraw::create();
-
-    auto vertices = vsg::vec2Array::create({
-                                            {-1.0f, -1.0f},
-                                            {1.0f, -1.0f},
-                                            {-1.0f, 1.0f},
-                                            {1.0f, 1.0f}});
-
-    auto indices = vsg::ushortArray::create({0, 2, 1, 1, 2, 3});
-
-    vid->assignArrays(vsg::DataList{vertices});
-    vid->assignIndices(indices);
-    vid->indexCount = static_cast<uint32_t>(indices->size());
-    vid->instanceCount = 1;
-
-    root->addChild(vid);
-
-    return root;
-}
-
-vsg::ref_ptr<vsg::View> AtmosphereData::createSkyView(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Camera> camera)
-{
-    // create the sky camera
-    auto inversePerojection = atmosphere::InverseProjection::create(camera->projectionMatrix);
-    auto inverseView = atmosphere::InverseView::create(camera->viewMatrix);
-    auto skyCamera = vsg::Camera::create(inversePerojection, inverseView, vsg::ViewportState::create(window->extent2D()));
-
-    return vsg::View::create(skyCamera);
-}
-
-void AtmosphereGenerator::generateTextures()
-{
-=======
->>>>>>> Stashed changes
     auto sampler = vsg::Sampler::create();
     _transmittanceTexture = Image::create(VkExtent3D{_settings->transmittanceWidth, _settings->transmittanceHeight, 1}, sampler);
     _transmittanceTexture->allocateTexture(_device);

@@ -133,27 +133,17 @@ constexpr double XYZ_TO_SRGB[9] = {
     constexpr double kLambdaMin = 360.0;
     constexpr double kLambdaMax = 830.0;
 
-<<<<<<< Updated upstream
-=======
 // Descriptor Sets
 
     constexpr int VIEW_DESCRIPTOR_SET = 3;
     constexpr int MATERIAL_DESCRIPTOR_SET = 2;
     constexpr int ATMOSHPERE_DESCRIPTOR_SET = 0;
     constexpr int CLOUDS_DESCRIPTOR_SET = 1;
->>>>>>> Stashed changes
 
 //Paths and filenames
 
     constexpr std::string_view curlNoiseTextureName = "weather.png";
-<<<<<<< Updated upstream
-    constexpr std::string_view shapeNoiseTextureName = "shapenoise.png";
-    constexpr std::string_view detailNoiseTextureName = "detailnoise.png";
     constexpr std::string_view blueNoiseTextureName = "bluenoise.png";
-    constexpr std::string_view cloudMapShader = "cloud_map.glsl";
-=======
-    constexpr std::string_view blueNoiseTextureName = "bluenoise.png";
->>>>>>> Stashed changes
 
     constexpr std::string_view detailNoiseShader = "compute_detail_noise_cs.glsl";
     constexpr std::string_view shapeNoiseShader = "compute_shape_noise_cs.glsl";
@@ -161,14 +151,11 @@ constexpr double XYZ_TO_SRGB[9] = {
     constexpr std::string_view skyFragShader = "sky_fs.glsl";
     constexpr std::string_view skyVertShader = "sky_vs.glsl";
 
-<<<<<<< Updated upstream
-=======
     constexpr std::string_view phongFragShader = "phong_fs.glsl";
     constexpr std::string_view phongVertShader = "standard.glsl";
 
     constexpr std::string_view pbrFragShader = "pbr_fs.glsl";
     constexpr std::string_view pbrVertShader = "standard.glsl";
 
->>>>>>> Stashed changes
 }
 #endif // ATMOSHPERECONSTATNTS_H

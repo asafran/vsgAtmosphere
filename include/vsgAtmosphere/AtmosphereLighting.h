@@ -13,12 +13,7 @@ namespace atmosphere {
     public:
         AtmosphereLighting(vsg::ref_ptr<vsg::View> view, vsg::ref_ptr<AtmosphereRuntime> in_atmosphereRuntime);
 
-<<<<<<< Updated upstream
-        void assignData(vsg::ref_ptr<AtmosphereData> data);
-        void assignData(vsg::ref_ptr<AtmosphereLighting> vds);
-=======
         vsg::ref_ptr<AtmosphereRuntime> atmosphereRuntime;
->>>>>>> Stashed changes
 
         double exposure = 10.0;
 

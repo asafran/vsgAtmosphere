@@ -15,28 +15,10 @@ namespace atmosphere {
 
     void AtmosphereLighting::bindDescriptorSets(vsg::CommandBuffer &commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet)
     {
-<<<<<<< Updated upstream
-        if(_atmosphereData)
-            return;
-        _atmosphereData = data;
-
-        descriptorSet->descriptors.push_back(vsg::DescriptorImage::create(data->transmittanceTexture->imageInfo, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-        descriptorSet->descriptors.push_back(vsg::DescriptorImage::create(data->irradianceTexture->imageInfo, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-        descriptorSet->descriptors.push_back(vsg::DescriptorImage::create(data->scatteringTexture->imageInfo, 4, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-        descriptorSet->descriptors.push_back(vsg::DescriptorImage::create(data->singleMieScatteringTexture->imageInfo, 5, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-        descriptorSet->descriptors.push_back(vsg::DescriptorBuffer::create(data->runtimeSettings, 6, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER));
-    }
-
-    void AtmosphereLighting::assignData(vsg::ref_ptr<AtmosphereLighting> vds)
-    {
-        _atmosphereData = vds->_atmosphereData;
-        descriptorSet = vds->descriptorSet;
-=======
         vsg::ViewDependentState::bindDescriptorSets(commandBuffer, pipelineBindPoint, layout, firstSet);
         
         auto vk = atmosphereRuntime->atmosphereBinding->descriptorSet->vk(commandBuffer.deviceID);
         vkCmdBindDescriptorSets(commandBuffer, pipelineBindPoint, layout, atmosphereRuntime->atmosphereBinding->set, 1, &vk, 0, nullptr);
->>>>>>> Stashed changes
     }
 
     void AtmosphereLighting::compile(vsg::Context &context)

@@ -1,14 +1,8 @@
 #ifndef ATMOSPHEREMODEL_H
 #define ATMOSPHEREMODEL_H
 
-<<<<<<< Updated upstream
-#include "AtmosphereImage.h"
-#include <string>
-#include <vector>
-=======
 #include "AtmosphereBinding.h"
 #include "AtmosphereRuntime.h"
->>>>>>> Stashed changes
 #include <vsg/app/EllipsoidModel.h>
 #include <vsg/state/ImageInfo.h>
 #include <vsg/state/ShaderStage.h>
@@ -87,20 +81,10 @@ public:
     unsigned int irradianceWidth = 64;
     unsigned int irradianceHeight = 16;
 
-<<<<<<< Updated upstream
-    unsigned int detailNoiseWidth = 64;
-    unsigned int detailNoiseHeight = 64;
-    unsigned int detailNoiseDepth = 64;
-
-    unsigned int shapeNoiseWidth = 64;
-    unsigned int shapeNoiseHeight = 64;
-    unsigned int shapeNoiseDepth = 64;
-=======
     bool clouds = true;
 
     unsigned int detailNoiseSize = 32;
     unsigned int shapeNoiseSize = 128;
->>>>>>> Stashed changes
 
     vsg::ref_ptr<vsg::EllipsoidModel> ellipsoidModel;
 
@@ -159,11 +143,7 @@ public:
     /// </summary>
     float sunAngularRadius = 0.01935f;
 
-<<<<<<< Updated upstream
-    /// <summary>
-=======
     /// <summary>POSITIONAL_DESCRIPTOR_SET
->>>>>>> Stashed changes
     /// The distance between the bottom and the top of the atmosphere in m.
     /// </summary>
     double atmoshpereHeight = 60000.0;
@@ -222,181 +202,9 @@ public:
 
 //extern vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::Options> options);
 
-<<<<<<< Updated upstream
-    void read(vsg::Input& input)
-    {
-        input.read("whitePoint", whitePoint);
-        input.read("sunSize", sunSize);
-    }
-
-    void write(vsg::Output& output) const
-    {
-        output.write("whitePoint", whitePoint);
-        output.write("sunSize", sunSize);
-    }
-};
-
-struct CloudSettings
-{
-    float 	  cloudMinHeight = 1500.0f;
-    float 	  cloudMaxHeight = 4000.0f;
-    float 	  shapeNoiseScale = 0.3f;
-    float 	  detailNoiseScale = 5.5f;
-
-    float 	  detailNoiseModifier = 0.5f;
-    float 	  turbulenceNoiseScale = 7.440f;
-    float 	  turbulenceAmount = 1.0f;
-    float 	  cloudCoverage = 0.7f;
-
-    vsg::vec3 	  windDirection = {1.0f, 0.0f, 0.0f};
-    float	  windSpeed = 0.0f;
-
-    float	  windShearOffset = 500.0f;
-    uint16_t	  maxNumSteps = 128;
-    float 	  lightStepLength = 64.0f;
-    float 	  lightConeRadius = 0.4f;
-
-    vsg::vec3      cloudBaseColor = {1.0f, 1.0f, 1.0f};
-    float 	  precipitation = 1.0f;
-
-    float 	  ambientLightFactor = 0.12f;
-    float 	  sunLightFactor = 1.0f;
-    float 	  henyeyGreensteinGForward = 0.179f;
-    float 	  henyeyGreensteinGBackward = 0.6f;
-
-    void read(vsg::Input& input)
-    {
-        /*input.read("density_to_sigma_s", density_to_sigma_s);
-        input.read("phase_g", phase_g);
-        input.read("density_to_sigma_t", density_to_sigma_t);
-        input.read("primary_ray_marching_steps", primary_ray_marching_steps);
-        input.read("box_min", box_min);
-        input.read("secondary_ray_marching_steps", secondary_ray_marching_steps);
-        input.read("box_max", box_max);
-        input.read("enable_multi_scattering", enable_multi_scattering);
-        input.read("g_c", g_c);
-        input.read("g_d", g_d);
-        input.read("wc0", wc0);
-        input.read("wc1", wc1);
-        input.read("wh", wh);
-        input.read("shape_tile", shape_tile);
-        input.read("detail_tile", detail_tile);
-        input.read("blend_alpha", blend_alpha);
-        input.read("cirrus", cirrus);
-        input.read("cumulus", cumulus);*/
-    }
-
-    void write(vsg::Output& output) const
-    {
-        /*output.write("density_to_sigma_s", density_to_sigma_s);
-        output.write("phase_g", phase_g);
-        output.write("density_to_sigma_t", density_to_sigma_t);
-        output.write("primary_ray_marching_steps", primary_ray_marching_steps);
-        output.write("box_min", box_min);
-        output.write("secondary_ray_marching_steps", secondary_ray_marching_steps);
-        output.write("box_max", box_max);
-        output.write("enable_multi_scattering", enable_multi_scattering);
-        output.write("g_c", g_c);
-        output.write("g_d", g_d);
-        output.write("wc0", wc0);
-        output.write("wc1", wc1);
-        output.write("wh", wh);
-        output.write("shape_tile", shape_tile);
-        output.write("detail_tile", detail_tile);
-        output.write("blend_alpha", blend_alpha);
-        output.write("cirrus", cirrus);
-        output.write("cumulus", cumulus);*/
-    }
-};
-
-class Clouds : public vsg::Inherit<vsg::Object, Clouds>
-{
-public:
-    Clouds(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options);
-    Clouds();
-    virtual ~Clouds();
-
-    void initialize(int noiseSize);
-
-    void read(vsg::Input& input) override;
-    void write(vsg::Output& output) const override;
-
-    int numThreads = 8;
-
-    int detailNoiseSize = 32;
-    int shapeNoiseSize = 128;
-
-    vsg::ref_ptr<vsg::ImageInfo> shapeNoiseTexture;
-    vsg::ref_ptr<vsg::ImageInfo> detailNoiseTexture;
-
-    vsg::ref_ptr<vsg::Data> shapeNoiseData;
-    vsg::ref_ptr<vsg::Data> detailNoiseData;
-    vsg::ref_ptr<vsg::Data> blueNoiseData;
-    vsg::ref_ptr<vsg::Data> curlNoiseData;
-
-private:
-    vsg::ref_ptr<vsg::Device> _device;
-    vsg::ref_ptr<vsg::PhysicalDevice> _physicalDevice;
-    vsg::ref_ptr<vsg::Options> _options;
-
-    void generateTextures();
-
-    vsg::ref_ptr<vsg::DescriptorSet> bindDetailNoise() const;
-    vsg::ref_ptr<vsg::DescriptorSet> bindShapeNoise() const;
-};
-
-class AtmosphereData : public vsg::Inherit<vsg::Object, AtmosphereData>
-{
-public:
-    void read(vsg::Input& input) override;
-    void write(vsg::Output& output) const override;
-
-    uint32_t cubeSize = 1024;
-    int numViewerThreads = 32;
-
-    double lengthUnitInMeters = 1000.0;
-
-    vsg::ref_ptr<Image> transmittanceTexture;
-    vsg::ref_ptr<Image> irradianceTexture;
-    vsg::ref_ptr<Image> scatteringTexture;
-    vsg::ref_ptr<Image> singleMieScatteringTexture;
-
-    vsg::ref_ptr<vsg::ImageInfo> environmentMap;
-    vsg::ref_ptr<vsg::ImageInfo> reflectionMap;
-
-    vsg::ref_ptr<vsg::ShaderStage> reflectionMapShader;
-    vsg::ref_ptr<vsg::ShaderStage> environmentMapShader;
-    vsg::ShaderStages skyShader;
-    vsg::ref_ptr<vsg::ShaderSet> phongShaderSet;
-    vsg::ref_ptr<vsg::ShaderSet> pbrShaderSet;
-
-    vsg::ref_ptr<vsg::EllipsoidModel> ellipsoidModel;
-
-    vsg::ref_ptr<vsg::Value<RuntimeSettings>> runtimeSettings;
-
-    vsg::dvec3 sunDirection = {0.0, std::sin(vsg::PI), std::cos(vsg::PI)};
-
-    void setSunAngle(double radians);
-
-    void setDate(tm time);
-
-    void copyData(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice);
-
-    vsg::ref_ptr<vsg::CommandGraph> createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::vec4Value> camera);
-    vsg::ref_ptr<vsg::View> createSkyView(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Camera> camera);
-    vsg::ref_ptr<vsg::Node> createSky(vsg::ref_ptr<vsg::DescriptorSetLayout> viewDescriptorSetLayout);
-};
-
-//extern vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::Options> options);
-
 class AtmosphereGenerator : public vsg::Inherit<vsg::Object, AtmosphereGenerator>
 {
 public:
-=======
-class AtmosphereGenerator : public vsg::Inherit<vsg::Object, AtmosphereGenerator>
-{
-public:
->>>>>>> Stashed changes
 
     /// <summary>
     /// The wavelength values, in nanometers, and sorted in increasing order, for
@@ -456,11 +264,6 @@ public:
     /// vector must have the same size as the wavelengths parameter.
     /// </summary>
     std::vector<double> rayleighScattering;
-<<<<<<< Updated upstream
-
-    vsg::ref_ptr<vsg::DescriptorSetLayout> viewDescriptorSetLayout;
-=======
->>>>>>> Stashed changes
 
     vsg::ref_ptr<vsg::ShaderCompileSettings> compileSettings;
 
@@ -504,28 +307,16 @@ public:
     virtual ~AtmosphereGenerator();
 
     void initialize();
-<<<<<<< Updated upstream
-
-    vsg::vec3 convertSpectrumToLinearSrgb(double c);
-
-    vsg::ref_ptr<AtmosphereData> loadData();
-=======
     void copyData();
 
     vsg::vec3 convertSpectrumToLinearSrgb(double c);
 
     vsg::ref_ptr<AtmosphereBinding> loadData();
     vsg::ref_ptr<AtmosphereRuntime> createRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<CloudsBinding> clouds = {});
->>>>>>> Stashed changes
 
 private:
     void generateTextures();
 
-<<<<<<< Updated upstream
-    vsg::ref_ptr<vsg::ShaderSet> createPhongShaderSet();
-
-=======
->>>>>>> Stashed changes
     unsigned int scatteringWidth() const { return _settings->scaterringNU * _settings->scaterringMU_S; }
     unsigned int scatteringHeight() const { return _settings->scaterringMU; }
     unsigned int scatteringDepth() const { return _settings->scaterringR; }
@@ -553,21 +344,12 @@ private:
 extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
 extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::EllipsoidModel> eps, vsg::ref_ptr<vsg::Options> options);
 extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
-<<<<<<< Updated upstream
-=======
 extern vsg::ref_ptr<AtmosphereRuntime> createAtmosphereRuntime(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
->>>>>>> Stashed changes
 }
 
 EVSG_type_name(atmosphere::AtmosphereGenerator)
 EVSG_type_name(atmosphere::AtmosphereModelSettings)
-<<<<<<< Updated upstream
-EVSG_type_name(atmosphere::AtmosphereData)
-EVSG_type_name(atmosphere::RuntimeSettings)
-EVSG_type_name(atmosphere::CloudSettings)
-=======
 EVSG_type_name(atmosphere::AtmosphereRuntime)
->>>>>>> Stashed changes
 
 namespace vsg {
     template<>

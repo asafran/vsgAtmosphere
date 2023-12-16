@@ -43,12 +43,8 @@ int main(int argc, char** argv)
 
         arguments.read(options);
 
-<<<<<<< Updated upstream
-        options->paths.emplace_back(options->paths.back() / "shaders" / "scattering");
-=======
         options->paths.emplace_back(dataPath / "shaders" / "scattering");
         options->paths.emplace_back(dataPath / "textures" / "scattering");
->>>>>>> Stashed changes
 
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = "vsgatmosphere";
@@ -150,25 +146,7 @@ int main(int argc, char** argv)
 
         auto settings = atmosphere::AtmosphereModelSettings::create(ellipsoidModel);
 
-<<<<<<< Updated upstream
-        auto atmosphereGenerator = atmosphere::createAtmosphereGenerator(window, settings, options);
-
-        auto mainViewDependent = atmosphere::AtmosphereLighting::create(modelView);
-        atmosphereGenerator->viewDescriptorSetLayout = mainViewDependent->descriptorSetLayout;
-        mainViewDependent->exposure = modelExposure;
-        auto skyViewDependent = atmosphere::AtmosphereLighting::create(inverseView);
-        skyViewDependent->exposure = skyExposure;
-        skyViewDependent->transform = false;
-
-        auto atmosphere = atmosphereGenerator->loadData();
-
-        //auto clouds = atmosphere::loadClouds("textures/scattering", options);
-
-        mainViewDependent->assignData(atmosphere);
-        skyViewDependent->assignData(atmosphere);
-=======
         auto atmosphere = atmosphere::createAtmosphereRuntime(window, settings, options);
->>>>>>> Stashed changes
 
         atmosphere->setSunAngle(sunAngle);
 
@@ -211,9 +189,6 @@ int main(int argc, char** argv)
         auto renderGraph = vsg::RenderGraph::create(window, mainView);
         renderGraph->contents = VK_SUBPASS_CONTENTS_INLINE;
 
-<<<<<<< Updated upstream
-        auto skyView = vsg::View::create(skyCamera, atmosphere->createSky(skyViewDependent->descriptorSetLayout));
-=======
         auto skyView = vsg::View::create(skyCamera);
 
         auto mainViewDependent = atmosphere::AtmosphereLighting::create(mainView, atmosphere);
@@ -222,7 +197,6 @@ int main(int argc, char** argv)
 
         auto skyViewDependent = atmosphere::SkyLighting::create(skyView, atmosphere);
         skyViewDependent->exposure = skyExposure;
->>>>>>> Stashed changes
         skyView->viewDependentState = skyViewDependent;
 
         auto sky = atmosphere->createSky();

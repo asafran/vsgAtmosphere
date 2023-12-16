@@ -23,19 +23,6 @@ vsg::ref_ptr<vsg::ImageInfo> createCubemap(uint32_t size)
     image->imageType = VK_IMAGE_TYPE_2D;
     image->arrayLayers = 6;
 
-<<<<<<< Updated upstream
-vsg::ref_ptr<vsg::ImageInfo> createCubemap(uint32_t size)
-{
-    vsg::ref_ptr<vsg::Image> image = vsg::Image::create();
-    image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
-    image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    image->mipLevels = 1;
-    image->extent = VkExtent3D{size, size, 1};
-    image->imageType = VK_IMAGE_TYPE_2D;
-    image->arrayLayers = 6;
-
-=======
->>>>>>> Stashed changes
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     imageView->viewType = VK_IMAGE_VIEW_TYPE_CUBE;
     auto sampler = vsg::Sampler::create();
@@ -131,11 +118,7 @@ vsg::ref_ptr<vsg::Data> convertArray(vsg::ref_ptr<vsg::Data> array)
         return {};
     return vsg::ubvec4Array3D::create(height, width, width, data, array->properties);
 }
-<<<<<<< Updated upstream
-
-=======
 */
->>>>>>> Stashed changes
 inline double interpolate(
         const std::vector<double>& wavelengths,
         const std::vector<double>& wavelength_function,
