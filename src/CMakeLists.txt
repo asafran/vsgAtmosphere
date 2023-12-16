@@ -3,15 +3,28 @@ SET(HEADER_PATH ${VSGATMOSPHERE_SOURCE_DIR}/include/vsgAtmosphere)
 set(SOURCES
         Atmosphere.cpp
         AtmosphereLighting.cpp
+<<<<<<< Updated upstream
         AtmosphereImage.cpp
+=======
+        AtmosphereBinding.cpp
+        AtmosphereRuntime.cpp
+        AtmosphereImage.cpp
+        Clouds.cpp
+>>>>>>> Stashed changes
 )
 set(HEADERS
         ${HEADER_PATH}/AtmoshpereConstatnts.h
         ${HEADER_PATH}/AtmosphereTools.h
         ${HEADER_PATH}/Atmosphere.h
         ${HEADER_PATH}/AtmosphereLighting.h
+        ${HEADER_PATH}/AtmosphereBinding.h
+        ${HEADER_PATH}/AtmosphereRuntime.h
         ${HEADER_PATH}/InverseMatrices.h
         ${HEADER_PATH}/AtmosphereImage.h
+<<<<<<< Updated upstream
+=======
+        ${HEADER_PATH}/Clouds.h
+>>>>>>> Stashed changes
 )
 
 add_library(vsgAtmosphere ${HEADERS} ${SOURCES})

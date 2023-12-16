@@ -1,13 +1,15 @@
 #ifndef ATMOSPHEREMODEL_H
 #define ATMOSPHEREMODEL_H
 
+<<<<<<< Updated upstream
 #include "AtmosphereImage.h"
 #include <string>
 #include <vector>
+=======
+#include "AtmosphereBinding.h"
+#include "AtmosphereRuntime.h"
+>>>>>>> Stashed changes
 #include <vsg/app/EllipsoidModel.h>
-#include <vsg/app/Window.h>
-#include <vsg/app/WindowResizeHandler.h>
-#include <vsg/core/Data.h>
 #include <vsg/state/ImageInfo.h>
 #include <vsg/state/ShaderStage.h>
 #include <vsg/state/ViewDependentState.h>
@@ -85,6 +87,7 @@ public:
     unsigned int irradianceWidth = 64;
     unsigned int irradianceHeight = 16;
 
+<<<<<<< Updated upstream
     unsigned int detailNoiseWidth = 64;
     unsigned int detailNoiseHeight = 64;
     unsigned int detailNoiseDepth = 64;
@@ -92,6 +95,12 @@ public:
     unsigned int shapeNoiseWidth = 64;
     unsigned int shapeNoiseHeight = 64;
     unsigned int shapeNoiseDepth = 64;
+=======
+    bool clouds = true;
+
+    unsigned int detailNoiseSize = 32;
+    unsigned int shapeNoiseSize = 128;
+>>>>>>> Stashed changes
 
     vsg::ref_ptr<vsg::EllipsoidModel> ellipsoidModel;
 
@@ -150,7 +159,11 @@ public:
     /// </summary>
     float sunAngularRadius = 0.01935f;
 
+<<<<<<< Updated upstream
     /// <summary>
+=======
+    /// <summary>POSITIONAL_DESCRIPTOR_SET
+>>>>>>> Stashed changes
     /// The distance between the bottom and the top of the atmosphere in m.
     /// </summary>
     double atmoshpereHeight = 60000.0;
@@ -207,11 +220,9 @@ public:
     int scatteringOrders = 4;
 };
 
-struct RuntimeSettings
-{
-    vsg::vec4 whitePoint;
-    vsg::vec2 sunSize;
+//extern vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::Options> options);
 
+<<<<<<< Updated upstream
     void read(vsg::Input& input)
     {
         input.read("whitePoint", whitePoint);
@@ -381,6 +392,11 @@ public:
 class AtmosphereGenerator : public vsg::Inherit<vsg::Object, AtmosphereGenerator>
 {
 public:
+=======
+class AtmosphereGenerator : public vsg::Inherit<vsg::Object, AtmosphereGenerator>
+{
+public:
+>>>>>>> Stashed changes
 
     /// <summary>
     /// The wavelength values, in nanometers, and sorted in increasing order, for
@@ -440,8 +456,11 @@ public:
     /// vector must have the same size as the wavelengths parameter.
     /// </summary>
     std::vector<double> rayleighScattering;
+<<<<<<< Updated upstream
 
     vsg::ref_ptr<vsg::DescriptorSetLayout> viewDescriptorSetLayout;
+=======
+>>>>>>> Stashed changes
 
     vsg::ref_ptr<vsg::ShaderCompileSettings> compileSettings;
 
@@ -485,16 +504,28 @@ public:
     virtual ~AtmosphereGenerator();
 
     void initialize();
+<<<<<<< Updated upstream
 
     vsg::vec3 convertSpectrumToLinearSrgb(double c);
 
     vsg::ref_ptr<AtmosphereData> loadData();
+=======
+    void copyData();
+
+    vsg::vec3 convertSpectrumToLinearSrgb(double c);
+
+    vsg::ref_ptr<AtmosphereBinding> loadData();
+    vsg::ref_ptr<AtmosphereRuntime> createRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<CloudsBinding> clouds = {});
+>>>>>>> Stashed changes
 
 private:
     void generateTextures();
 
+<<<<<<< Updated upstream
     vsg::ref_ptr<vsg::ShaderSet> createPhongShaderSet();
 
+=======
+>>>>>>> Stashed changes
     unsigned int scatteringWidth() const { return _settings->scaterringNU * _settings->scaterringMU_S; }
     unsigned int scatteringHeight() const { return _settings->scaterringMU; }
     unsigned int scatteringDepth() const { return _settings->scaterringR; }
@@ -522,19 +553,24 @@ private:
 extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
 extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::EllipsoidModel> eps, vsg::ref_ptr<vsg::Options> options);
 extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
+<<<<<<< Updated upstream
+=======
+extern vsg::ref_ptr<AtmosphereRuntime> createAtmosphereRuntime(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
+>>>>>>> Stashed changes
 }
 
 EVSG_type_name(atmosphere::AtmosphereGenerator)
 EVSG_type_name(atmosphere::AtmosphereModelSettings)
+<<<<<<< Updated upstream
 EVSG_type_name(atmosphere::AtmosphereData)
 EVSG_type_name(atmosphere::RuntimeSettings)
 EVSG_type_name(atmosphere::CloudSettings)
+=======
+EVSG_type_name(atmosphere::AtmosphereRuntime)
+>>>>>>> Stashed changes
 
 namespace vsg {
     template<>
     constexpr bool has_read_write<atmosphere::DensityProfileLayer>() { return true; }
-
-    template<>
-    constexpr bool has_read_write<atmosphere::RuntimeSettings>() { return true; }
 }
 #endif // ATMOSPHEREMODEL_H

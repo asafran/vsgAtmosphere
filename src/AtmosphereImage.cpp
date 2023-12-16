@@ -7,7 +7,11 @@
 
 namespace atmosphere {
 
+<<<<<<< Updated upstream
 Image::Image(VkExtent3D extent, vsg::ref_ptr<vsg::Sampler> sampler, VkFormat format)
+=======
+    Image::Image(VkExtent3D extent, vsg::ref_ptr<vsg::Sampler> sampler, VkFormat format)
+>>>>>>> Stashed changes
     {
         vsg::ref_ptr<vsg::Image> image = vsg::Image::create();
         image->usage |= (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
@@ -23,6 +27,16 @@ Image::Image(VkExtent3D extent, vsg::ref_ptr<vsg::Sampler> sampler, VkFormat for
         imageInfo = vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
     }
 
+<<<<<<< Updated upstream
+=======
+    Image::Image(vsg::ref_ptr<vsg::Data> in_data, vsg::ref_ptr<vsg::Sampler> sampler)
+        : imageInfo(vsg::ImageInfo::create(sampler, in_data))
+        , data(in_data)
+    {
+
+    }
+
+>>>>>>> Stashed changes
     Image::Image()
     {
 
@@ -33,6 +47,33 @@ Image::Image(VkExtent3D extent, vsg::ref_ptr<vsg::Sampler> sampler, VkFormat for
 
     }
 
+<<<<<<< Updated upstream
+=======
+    int Image::compare(const Object &rhs_object) const
+    {
+        int result = Object::compare(rhs_object);
+        if (result != 0) return result;
+
+        auto& rhs = static_cast<decltype(*this)>(rhs_object);
+        return compare_pointer(data, rhs.data);
+    }
+
+    void Image::read(vsg::Input &input)
+    {
+        vsg::ref_ptr<vsg::Sampler> sampler;
+        input.readObject("sampler", sampler);
+        input.readObject("data", data);
+
+        imageInfo = vsg::ImageInfo::create(sampler, data);
+    }
+
+    void Image::write(vsg::Output &output) const
+    {
+        output.writeObject("sampler", imageInfo->sampler);
+        output.writeObject("data", data);
+    }
+
+>>>>>>> Stashed changes
     void Image::allocateTexture(vsg::Device* device, bool init)
     {
         auto &image = imageInfo->imageView->image;

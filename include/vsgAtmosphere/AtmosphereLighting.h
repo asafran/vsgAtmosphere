@@ -2,6 +2,7 @@
 #define ATMOSPHERELIGHTING_H
 
 #include "Atmosphere.h"
+#include "AtmosphereRuntime.h"
 #include <vsg/state/ViewDependentState.h>
 #include <vsg/utils/ShaderSet.h>
 
@@ -10,29 +11,38 @@ namespace atmosphere {
     class AtmosphereLighting : public vsg::Inherit<vsg::ViewDependentState, AtmosphereLighting>
     {
     public:
-        AtmosphereLighting(vsg::ref_ptr<vsg::ViewMatrix> view = {}, uint32_t maxNumberLights = 64, uint32_t maxViewports = 1);
+        AtmosphereLighting(vsg::ref_ptr<vsg::View> view, vsg::ref_ptr<AtmosphereRuntime> in_atmosphereRuntime);
 
+<<<<<<< Updated upstream
         void assignData(vsg::ref_ptr<AtmosphereData> data);
         void assignData(vsg::ref_ptr<AtmosphereLighting> vds);
+=======
+        vsg::ref_ptr<AtmosphereRuntime> atmosphereRuntime;
+>>>>>>> Stashed changes
 
         double exposure = 10.0;
-        bool transform = true;
 
-        void pack() override;
+        void bindDescriptorSets(vsg::CommandBuffer& commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet) override;
+        void compile(vsg::Context& context) override;
+
+        void traverse(vsg::RecordTraversal& rt) const override;
 
     protected:
         ~AtmosphereLighting();
+    };
 
-        struct Positional
-        {
-            vsg::vec4 sunDirectionExp;
-            vsg::vec4 cameraPos;
-        };
+    class SkyLighting : public vsg::Inherit<AtmosphereLighting, SkyLighting>
+    {
+    public:
+        SkyLighting(vsg::ref_ptr<vsg::View> view, vsg::ref_ptr<AtmosphereRuntime> in_atmosphereRuntime);
 
-        vsg::ref_ptr<AtmosphereData> _atmosphereData;
-        vsg::ref_ptr<vsg::ViewMatrix> _viewMatrix;
+        void bindDescriptorSets(vsg::CommandBuffer& commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet) override;
+        void compile(vsg::Context& context) override;
 
-        vsg::ref_ptr<vsg::Value<Positional>> _positional;
+        void traverse(vsg::RecordTraversal& rt) const override;
+
+    protected:
+        ~SkyLighting();
     };
 }
 

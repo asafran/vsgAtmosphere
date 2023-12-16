@@ -1,32 +1,32 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
-#pragma import_defines (VSG_POINT_SPRITE, VSG_DIFFUSE_MAP, VSG_GREYSACLE_DIFFUSE_MAP, VSG_EMISSIVE_MAP, VSG_LIGHTMAP_MAP, VSG_NORMAL_MAP, VSG_SPECULAR_MAP, VSG_TWO_SIDED_LIGHTING)
+#pragma import_defines (VSG_POINT_SPRITE, VSG_DIFFUSE_MAP, VSG_GREYSCALE_DIFFUSE_MAP, VSG_EMISSIVE_MAP, VSG_LIGHTMAP_MAP, VSG_NORMAL_MAP, VSG_SPECULAR_MAP, VSG_TWO_SIDED_LIGHTING, SHADOWMAP_DEBUG)
 
 #include "rendering_constants.glsl"
 #include "constants.glsl"
 #include "functions.glsl"
 
 #ifdef VSG_DIFFUSE_MAP
-layout(set = 0, binding = 0) uniform sampler2D diffuseMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D diffuseMap;
 #endif
 
 #ifdef VSG_NORMAL_MAP
-layout(set = 0, binding = 2) uniform sampler2D normalMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D normalMap;
 #endif
 
 #ifdef VSG_LIGHTMAP_MAP
-layout(set = 0, binding = 3) uniform sampler2D aoMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D aoMap;
 #endif
 
 #ifdef VSG_EMISSIVE_MAP
-layout(set = 0, binding = 4) uniform sampler2D emissiveMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap;
 #endif
 
 #ifdef VSG_SPECULAR_MAP
-layout(set = 0, binding = 5) uniform sampler2D specularMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap;
 #endif
 
-layout(set = 0, binding = 10) uniform MaterialData
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform MaterialData
 {
     vec4 ambientColor;
     vec4 diffuseColor;
@@ -37,10 +37,13 @@ layout(set = 0, binding = 10) uniform MaterialData
     float alphaMaskCutoff;
 } material;
 
-layout(set = 1, binding = 0) uniform LightData
+layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
 {
-    vec4 values[64];
+    vec4 values[2048];
 } lightData;
+
+
+layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
 
 layout(location = 0) in vec3 eyePos;
 layout(location = 1) in vec3 normalDir;
@@ -51,24 +54,6 @@ layout(location = 3) in vec2 texCoord0;
 layout(location = 5) in vec3 viewDir;
 
 layout(location = 0) out vec4 outColor;
-
-layout(set = 1, binding = 2) uniform sampler2D transmittance_texture;
-layout(set = 1, binding = 3) uniform sampler2D irradiance_texture;
-layout(set = 1, binding = 4) uniform sampler3D scattering_texture;
-layout(set = 1, binding = 5) uniform sampler3D single_mie_scattering_texture;
-
-layout(set = 1, binding = 6, std140) uniform Settings
-{
-	vec4 whitePoint;
-	vec2 sunSize;
-} settings;
-
-layout(set = 1, binding = 7, std140) uniform Positional
-{
-	vec4 sunDirectionExp;
-    vec4 cameraPos;
-} positional;
-
 
 // Find the normal for this fragment, pulling either from a predefined normal map
 // or from the interpolated mesh normal and tangent attributes.
@@ -102,6 +87,52 @@ vec3 getNormal()
     return result;
 }
 
+layout(set = ATMOSHPERE_DESCRIPTOR_SET, binding = 0) uniform sampler2D transmittance_texture;
+layout(set = ATMOSHPERE_DESCRIPTOR_SET, binding = 1) uniform sampler2D irradiance_texture;
+layout(set = ATMOSHPERE_DESCRIPTOR_SET, binding = 2) uniform sampler3D scattering_texture;
+layout(set = ATMOSHPERE_DESCRIPTOR_SET, binding = 3) uniform sampler3D single_mie_scattering_texture;
+
+layout(set = ATMOSHPERE_DESCRIPTOR_SET, binding = 4, std140) uniform Settings
+{
+	vec4 whitePoint;
+	vec2 sunSize;
+} settings;
+
+layout(set = ATMOSHPERE_DESCRIPTOR_SET, binding = 5, std140) uniform Positional
+{
+	vec4 sunDirectionExp;
+    vec4 cameraPos;
+} positional;
+
+Luminance3 GetSolarRadiance()
+{
+    return solar_irradiance / (PI * sun_angular_radius * sun_angular_radius) * SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
+}
+
+Luminance3 GetSkyRadiance(Position camera, Direction view_ray, Length shadow_length, Direction sun_direction, out DimensionlessSpectrum transmittance)
+{
+    return GetSkyRadiance(transmittance_texture,
+    scattering_texture, single_mie_scattering_texture,
+    camera, view_ray, shadow_length, sun_direction, transmittance) *
+    SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+}
+Luminance3 GetSkyRadianceToPoint(Position camera, Position point, Length shadow_length, Direction sun_direction, out DimensionlessSpectrum transmittance)
+{
+    return GetSkyRadianceToPoint(transmittance_texture,
+    scattering_texture, single_mie_scattering_texture,
+    camera, point, shadow_length, sun_direction, transmittance) *
+    SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+}
+
+Illuminance3 GetSunAndSkyIrradiance(Position p, Direction normal, Direction sun_direction, out IrradianceSpectrum sky_irradiance)
+{
+    IrradianceSpectrum sun_irradiance = GetSunAndSkyIrradiance(
+    transmittance_texture, irradiance_texture, p, normal,
+    sun_direction, sky_irradiance);
+    sky_irradiance *= SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+    return sun_irradiance * SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
+}
+
 vec3 computeLighting(vec3 ambientColor, vec3 diffuseColor, vec3 specularColor, vec3 emissiveColor, float shininess, float ambientOcclusion, vec3 ld, vec3 nd, vec3 vd)
 {
     vec3 color = vec3(0.0);
@@ -122,46 +153,18 @@ vec3 computeLighting(vec3 ambientColor, vec3 diffuseColor, vec3 specularColor, v
     return result;
 }
 
-    Luminance3 GetSolarRadiance() {
-        return solar_irradiance /
-            (PI * sun_angular_radius * sun_angular_radius) *
-            SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
-        }
-    Luminance3 GetSkyRadiance(
-        Position camera, Direction view_ray, Length shadow_length,
-        Direction sun_direction, out DimensionlessSpectrum transmittance) {
-      return GetSkyRadiance(transmittance_texture,
-          scattering_texture, single_mie_scattering_texture,
-          camera, view_ray, shadow_length, sun_direction, transmittance) *
-          SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
-    }
-    Luminance3 GetSkyRadianceToPoint(
-        Position camera, Position point, Length shadow_length,
-        Direction sun_direction, out DimensionlessSpectrum transmittance) {
-      return GetSkyRadianceToPoint(transmittance_texture,
-          scattering_texture, single_mie_scattering_texture,
-          camera, point, shadow_length, sun_direction, transmittance) *
-          SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
-    }
-    Illuminance3 GetSunAndSkyIrradiance(
-       Position p, Direction normal, Direction sun_direction,
-       out IrradianceSpectrum sky_irradiance) {
-      IrradianceSpectrum sun_irradiance = GetSunAndSkyIrradiance(
-          transmittance_texture, irradiance_texture, p, normal,
-          sun_direction, sky_irradiance);
-      sky_irradiance *= SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
-      return sun_irradiance * SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
-    }
 
 void main()
 {
+    float brightnessCutoff = 0.001;
+
 #ifdef VSG_POINT_SPRITE
     vec2 texCoord0 = gl_PointCoord.xy;
 #endif
 
     vec4 diffuseColor = vertexColor * material.diffuseColor;
 #ifdef VSG_DIFFUSE_MAP
-    #ifdef VSG_GREYSACLE_DIFFUSE_MAP
+    #ifdef VSG_GREYSCALE_DIFFUSE_MAP
         float v = texture(diffuseMap, texCoord0.st).s;
         diffuseColor *= vec4(v, v, v, 1.0);
     #else
@@ -215,6 +218,9 @@ void main()
         }
     }
 
+    // index used to step through the shadowMaps array
+    int shadowMapIndex = 0;
+
     if (numDirectionalLights>0)
     {
         // directional lights
@@ -222,16 +228,62 @@ void main()
         {
             vec4 lightColor = lightData.values[index++];
             vec3 direction = -lightData.values[index++].xyz;
+            vec4 shadowMapSettings = lightData.values[index++];
+
+            float brightness = lightColor.a;
+
+            // check shadow maps if required
+            bool matched = false;
+            while ((shadowMapSettings.r > 0.0 && brightness > brightnessCutoff) && !matched)
+            {
+                mat4 sm_matrix = mat4(lightData.values[index++],
+                                      lightData.values[index++],
+                                      lightData.values[index++],
+                                      lightData.values[index++]);
+
+                vec4 sm_tc = (sm_matrix) * vec4(eyePos, 1.0);
+
+                if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0 /* && sm_tc.z <= 1.0*/)
+                {
+                    matched = true;
+
+                    float coverage = texture(shadowMaps, vec4(sm_tc.st, shadowMapIndex, sm_tc.z)).r;
+                    brightness *= (1.0-coverage);
+
+#ifdef SHADOWMAP_DEBUG
+                    if (shadowMapIndex==0) color = vec3(1.0, 0.0, 0.0);
+                    else if (shadowMapIndex==1) color = vec3(0.0, 1.0, 0.0);
+                    else if (shadowMapIndex==2) color = vec3(0.0, 0.0, 1.0);
+                    else if (shadowMapIndex==3) color = vec3(1.0, 1.0, 0.0);
+                    else if (shadowMapIndex==4) color = vec3(0.0, 1.0, 1.0);
+                    else color = vec3(1.0, 1.0, 1.0);
+#endif
+                }
+
+                ++shadowMapIndex;
+                shadowMapSettings.r -= 1.0;
+            }
+
+            if (shadowMapSettings.r > 0.0)
+            {
+                // skip lightData and shadowMap entries for shadow maps that we haven't visited for this light
+                // so subsequent light pointions are correct.
+                index += 4 * int(shadowMapSettings.r);
+                shadowMapIndex += int(shadowMapSettings.r);
+            }
+
+            // if light is too dim/shadowed to effect the rendering skip it
+            if (brightness <= brightnessCutoff ) continue;
 
             float unclamped_LdotN = dot(direction, nd);
 
             float diff = max(unclamped_LdotN, 0.0);
-            color.rgb += (diffuseColor.rgb * lightColor.rgb) * (diff * lightColor.a);
+            color.rgb += (diffuseColor.rgb * lightColor.rgb) * (diff * brightness);
 
             if (shininess > 0.0 && diff > 0.0)
             {
                 vec3 halfDir = normalize(direction + vd);
-                color.rgb += specularColor.rgb * (pow(max(dot(halfDir, nd), 0.0), shininess) * lightColor.a);
+                color.rgb += specularColor.rgb * (pow(max(dot(halfDir, nd), 0.0), shininess) * brightness);
             }
         }
     }
@@ -243,10 +295,16 @@ void main()
         {
             vec4 lightColor = lightData.values[index++];
             vec3 position = lightData.values[index++].xyz;
+
+            float brightness = lightColor.a;
+
+            // if light is too dim/shadowed to effect the rendering skip it
+            if (brightness <= brightnessCutoff ) continue;
+
             vec3 delta = position - eyePos;
             float distance2 = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
             vec3 direction = delta / sqrt(distance2);
-            float scale = lightColor.a / distance2;
+            float scale = brightness / distance2;
 
             float unclamped_LdotN = dot(direction, nd);
 
@@ -270,12 +328,17 @@ void main()
             vec4 position_cosInnerAngle = lightData.values[index++];
             vec4 lightDirection_cosOuterAngle = lightData.values[index++];
 
+            float brightness = lightColor.a;
+
+            // if light is too dim/shadowed to effect the rendering skip it
+            if (brightness <= brightnessCutoff ) continue;
+
             vec3 delta = position_cosInnerAngle.xyz - eyePos;
             float distance2 = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
             vec3 direction = delta / sqrt(distance2);
 
             float dot_lightdirection = dot(lightDirection_cosOuterAngle.xyz, -direction);
-            float scale = (lightColor.a  * smoothstep(lightDirection_cosOuterAngle.w, position_cosInnerAngle.w, dot_lightdirection)) / distance2;
+            float scale = (brightness  * smoothstep(lightDirection_cosOuterAngle.w, position_cosInnerAngle.w, dot_lightdirection)) / distance2;
 
             float unclamped_LdotN = dot(direction, nd);
 

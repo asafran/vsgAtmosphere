@@ -1,6 +1,7 @@
 #include "Atmosphere.h"
 #include "AtmosphereLighting.h"
 #include "AtmosphereTools.h"
+#include "Clouds.h"
 #include "InverseMatrices.h"
 
 #include <vsg/all.h>
@@ -8,6 +9,7 @@
 
 namespace atmosphere {
 
+<<<<<<< Updated upstream
 
 void AtmosphereData::read(vsg::Input &input)
 {
@@ -108,11 +110,26 @@ void AtmosphereData::copyData(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg
     auto queueFamilyIndex = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
     auto commandPool = vsg::CommandPool::create(device, queueFamilyIndex);
     auto queue = device->getQueue(queueFamilyIndex);
+=======
+void AtmosphereGenerator::copyData()
+{
+    auto commands = vsg::Commands::create();
+    commands->addChild(_transmittanceTexture->copyData(_device));
+    commands->addChild(_irradianceTexture->copyData(_device));
+    commands->addChild(_scatteringTexture->copyData(_device));
+    commands->addChild(_singleMieScatteringTexture->copyData(_device));
+
+    auto fence = vsg::Fence::create(_device);
+    auto queueFamilyIndex = _physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
+    auto commandPool = vsg::CommandPool::create(_device, queueFamilyIndex);
+    auto queue = _device->getQueue(queueFamilyIndex);
+>>>>>>> Stashed changes
 
     vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
         commands->record(commandBuffer);
     });
 
+<<<<<<< Updated upstream
     transmittanceTexture->mapData(device);
     irradianceTexture->mapData(device);
     scatteringTexture->mapData(device);
@@ -193,11 +210,18 @@ vsg::ref_ptr<vsg::DescriptorSet> Clouds::bindDetailNoise() const
 vsg::ref_ptr<vsg::DescriptorSet> Clouds::bindShapeNoise() const
 {
 
+=======
+    _transmittanceTexture->mapData(_device);
+    _irradianceTexture->mapData(_device);
+    _scatteringTexture->mapData(_device);
+    _singleMieScatteringTexture->mapData(_device);
+>>>>>>> Stashed changes
 }
 
 /*
 vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::Options> options)
 {
+<<<<<<< Updated upstream
     auto clouds = Clouds::create();
     try {
 
@@ -227,6 +251,9 @@ vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::O
         return {};
     }
     return clouds;
+=======
+
+>>>>>>> Stashed changes
 }
 */
 AtmosphereModelSettings::AtmosphereModelSettings(vsg::ref_ptr<vsg::EllipsoidModel> model)
@@ -683,15 +710,22 @@ vsg::vec3 AtmosphereGenerator::convertSpectrumToLinearSrgb(double c)
     return {static_cast<float>(r), static_cast<float>(g), static_cast<float>(b)};
 }
 
+<<<<<<< Updated upstream
 vsg::ref_ptr<AtmosphereData> AtmosphereGenerator::loadData()
+=======
+vsg::ref_ptr<AtmosphereBinding> AtmosphereGenerator::loadData()
+>>>>>>> Stashed changes
 {
-    auto runtimeData = AtmosphereData::create();
+    auto atmosphereBinding = AtmosphereBinding::create();
+    atmosphereBinding->transmittanceTexture = _transmittanceTexture;
+    atmosphereBinding->irradianceTexture = _irradianceTexture;
+    atmosphereBinding->scatteringTexture = _scatteringTexture;
+    atmosphereBinding->singleMieScatteringTexture = _singleMieScatteringTexture;
 
-    runtimeData->transmittanceTexture = _transmittanceTexture;
-    runtimeData->irradianceTexture = _irradianceTexture;
-    runtimeData->scatteringTexture = _scatteringTexture;
-    runtimeData->singleMieScatteringTexture = _singleMieScatteringTexture;
+    return atmosphereBinding;
+}
 
+<<<<<<< Updated upstream
     runtimeData->ellipsoidModel = _settings->ellipsoidModel;
 
     runtimeData->reflectionMapShader = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", "shaders/scattering/reflection_map.glsl", _options);
@@ -725,13 +759,24 @@ vsg::ref_ptr<AtmosphereData> AtmosphereGenerator::loadData()
     runtimeData->runtimeSettings = vsg::Value<atmosphere::RuntimeSettings>::create(settings);
     runtimeData->runtimeSettings->properties.dataVariance = vsg::DYNAMIC_DATA;
 
+=======
+vsg::ref_ptr<AtmosphereRuntime> AtmosphereGenerator::createRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<CloudsBinding> clouds)
+{
+    auto runtimeData = AtmosphereRuntime::create(atmosphere, clouds);
+    runtimeData->createPhongShaderSet(_options, _renderConstants);
+    runtimeData->createSkyShaderSet(_options, _renderConstants);
+
+    runtimeData->ellipsoidModel = _settings->ellipsoidModel;
+    runtimeData->atmosphereBinding->settings->value() = {vsg::vec4(convertSpectrumToLinearSrgb(3.0), 0.0f), {std::tan(_settings->sunAngularRadius), std::cos(_settings->sunAngularRadius)}};
+>>>>>>> Stashed changes
     runtimeData->lengthUnitInMeters = _settings->lengthUnitInMeters;
 
     return runtimeData;
 }
 
-vsg::ref_ptr<vsg::CommandGraph> AtmosphereData::createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::vec4Value> camera)
+void AtmosphereGenerator::generateTextures()
 {
+<<<<<<< Updated upstream
     if(!reflectionMap)
         reflectionMap = createCubemap(cubeSize);
 
@@ -957,6 +1002,8 @@ vsg::ref_ptr<vsg::View> AtmosphereData::createSkyView(vsg::ref_ptr<vsg::Window> 
 
 void AtmosphereGenerator::generateTextures()
 {
+=======
+>>>>>>> Stashed changes
     auto sampler = vsg::Sampler::create();
     _transmittanceTexture = Image::create(VkExtent3D{_settings->transmittanceWidth, _settings->transmittanceHeight, 1}, sampler);
     _transmittanceTexture->allocateTexture(_device);
@@ -998,7 +1045,7 @@ vsg::ref_ptr<vsg::BindComputePipeline> AtmosphereGenerator::bindCompute(const vs
     // set up the compute pipeline
     auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeStage);
 
-    return vsg::BindComputePipeline::create(pipeline);;
+    return vsg::BindComputePipeline::create(pipeline);
 }
 
 vsg::ref_ptr<vsg::DescriptorSet> AtmosphereGenerator::bindTransmittance() const
@@ -1324,7 +1371,7 @@ vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<vsg::Wi
     model->solarIrradiance = solar_irradiance;
     model->sunAngularRadius = 0.01935f;
     model->ellipsoidModel = eps;
-    model->atmoshpereHeight = 60000.0;
+    model->atmoshpereHeight = 60000.0;        auto atmosphere = atmosphereGenerator->loadData();
     model->rayleighDensityLayer = rayleigh_layer;
     model->rayleighScattering = rayleigh_scattering;
     model->mieDensityLayer = mie_layer;
@@ -1378,6 +1425,19 @@ vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<Atmosph
     model->initialize();
 
     return model;
+}
+
+vsg::ref_ptr<AtmosphereRuntime> createAtmosphereRuntime(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options)
+{
+    auto model = atmosphere::AtmosphereGenerator::create(settings, window->getOrCreateDevice(), window->getOrCreatePhysicalDevice(), options);
+    model->initialize();
+    auto atmosphere = model->loadData();
+
+    vsg::ref_ptr<CloudsBinding> clouds;
+    if(settings->clouds)
+        clouds = createCloudsData(window, options, settings);
+
+    return model->createRuntime(atmosphere, clouds);
 }
 
 }

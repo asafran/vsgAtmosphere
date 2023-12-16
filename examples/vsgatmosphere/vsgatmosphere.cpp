@@ -5,13 +5,22 @@
 #    include <vsgXchange/all.h>
 #endif
 
-#include <algorithm>
-#include <chrono>
 #include <iostream>
-#include <thread>
 
 #include "Atmosphere.h"
 #include "InverseMatrices.h"
+
+void loadData(const std::string &filename, vsg::ref_ptr<vsg::Options> options)
+{
+    auto object = vsg::read(filename, options);
+    if(object)
+    {
+        vsg::info("Loaded object: ",filename);
+        options->setObject(filename, object);
+    }
+    else
+        vsg::error("Could not load ",filename);
+}
 
 int main(int argc, char** argv)
 {
@@ -24,7 +33,8 @@ int main(int argc, char** argv)
         auto options = vsg::Options::create();
         options->sharedObjects = vsg::SharedObjects::create();
         options->fileCache = vsg::getEnv("VSG_FILE_CACHE");
-        options->paths = vsg::getEnvPaths("VSG_FILE_PATH");
+        auto dataPath = vsg::Path(vsg::getEnv("VSG_FILE_PATH"));
+        options->paths.emplace_back(dataPath);
 
 #ifdef vsgXchange_all
         // add vsgXchange's support for reading and writing 3rd party file formats
@@ -33,7 +43,12 @@ int main(int argc, char** argv)
 
         arguments.read(options);
 
+<<<<<<< Updated upstream
         options->paths.emplace_back(options->paths.back() / "shaders" / "scattering");
+=======
+        options->paths.emplace_back(dataPath / "shaders" / "scattering");
+        options->paths.emplace_back(dataPath / "textures" / "scattering");
+>>>>>>> Stashed changes
 
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = "vsgatmosphere";
@@ -89,9 +104,23 @@ int main(int argc, char** argv)
         auto window = vsg::Window::create(windowTraits);
         if (!window)
         {
-            std::cout << "Could not create windows." << std::endl;
+            vsg::error("Could not create windows.");
             return 1;
         }
+
+        loadData(std::string(atmosphere::curlNoiseTextureName), options);
+        loadData(std::string(atmosphere::blueNoiseTextureName), options);
+
+        loadData(std::string(atmosphere::detailNoiseShader), options);
+        loadData(std::string(atmosphere::shapeNoiseShader), options);
+
+        loadData(std::string(atmosphere::skyFragShader), options);
+        loadData(std::string(atmosphere::skyVertShader), options);
+        loadData(std::string(atmosphere::phongFragShader), options);
+        loadData(std::string(atmosphere::phongVertShader), options);
+        loadData(std::string(atmosphere::pbrFragShader), options);
+        loadData(std::string(atmosphere::pbrVertShader), options);
+
         auto vsg_scene = vsg::Group::create();
 
         auto ellipsoidModel = vsg::EllipsoidModel::create(vsg::WGS_84_RADIUS_EQUATOR, vsg::WGS_84_RADIUS_EQUATOR);
@@ -117,10 +146,11 @@ int main(int argc, char** argv)
         auto skyCamera = vsg::Camera::create(inversePerojection, inverseView, vsg::ViewportState::create(window->extent2D()));
 
         vsg::RegisterWithObjectFactoryProxy<atmosphere::AtmosphereModelSettings>();
-        vsg::RegisterWithObjectFactoryProxy<atmosphere::AtmosphereData>();
+        vsg::RegisterWithObjectFactoryProxy<atmosphere::AtmosphereRuntime>();
 
         auto settings = atmosphere::AtmosphereModelSettings::create(ellipsoidModel);
 
+<<<<<<< Updated upstream
         auto atmosphereGenerator = atmosphere::createAtmosphereGenerator(window, settings, options);
 
         auto mainViewDependent = atmosphere::AtmosphereLighting::create(modelView);
@@ -136,6 +166,9 @@ int main(int argc, char** argv)
 
         mainViewDependent->assignData(atmosphere);
         skyViewDependent->assignData(atmosphere);
+=======
+        auto atmosphere = atmosphere::createAtmosphereRuntime(window, settings, options);
+>>>>>>> Stashed changes
 
         atmosphere->setSunAngle(sunAngle);
 
@@ -173,14 +206,27 @@ int main(int argc, char** argv)
 
         auto mainView = vsg::View::create(camera);
         mainView->addChild(vsg_scene);
-        mainView->viewDependentState = mainViewDependent;
 
         // set up the render graph
         auto renderGraph = vsg::RenderGraph::create(window, mainView);
         renderGraph->contents = VK_SUBPASS_CONTENTS_INLINE;
 
+<<<<<<< Updated upstream
         auto skyView = vsg::View::create(skyCamera, atmosphere->createSky(skyViewDependent->descriptorSetLayout));
+=======
+        auto skyView = vsg::View::create(skyCamera);
+
+        auto mainViewDependent = atmosphere::AtmosphereLighting::create(mainView, atmosphere);
+        mainViewDependent->exposure = modelExposure;
+        mainView->viewDependentState = mainViewDependent;
+
+        auto skyViewDependent = atmosphere::SkyLighting::create(skyView, atmosphere);
+        skyViewDependent->exposure = skyExposure;
+>>>>>>> Stashed changes
         skyView->viewDependentState = skyViewDependent;
+
+        auto sky = atmosphere->createSky();
+        skyView->addChild(sky);
 
         renderGraph->addChild(skyView);
         renderGraph->setClearValues({{0.0f, 0.0f, 0.0f, 1.0f}});

@@ -12,7 +12,11 @@ layout(local_size_x_id = 0, local_size_y_id = 0, local_size_z_id = 0) in;
 
 layout(binding = 0, rgba16f) uniform image3D shape_noise;
 
+<<<<<<< Updated upstream
 layout (constant_id = 42) const int size = 32;
+=======
+layout (constant_id = 1) const int size = 32;
+>>>>>>> Stashed changes
 
 // ------------------------------------------------------------------
 // MAIN -------------------------------------------------------------

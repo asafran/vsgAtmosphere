@@ -10,9 +10,15 @@ layout(local_size_x_id = 0, local_size_y_id = 0, local_size_z_id = 0) in;
 // UNIFORMS ---------------------------------------------------------
 // ------------------------------------------------------------------
 
+<<<<<<< Updated upstream
 layout(binding = 0, rgba16f) uniform image3D detail_noise;
 
 layout (constant_id = 41) const int size = 32;
+=======
+layout(binding = 1, rgba16f) uniform image3D detail_noise;
+
+layout (constant_id = 1) const int size = 32;
+>>>>>>> Stashed changes
 
 // ------------------------------------------------------------------
 // MAIN -------------------------------------------------------------
