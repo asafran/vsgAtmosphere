@@ -6,6 +6,7 @@ set(SOURCES
         AtmosphereBinding.cpp
         AtmosphereRuntime.cpp
         AtmosphereImage.cpp
+        AtmosphereTrackball.cpp
         Clouds.cpp
 )
 set(HEADERS
@@ -17,6 +18,7 @@ set(HEADERS
         ${HEADER_PATH}/AtmosphereRuntime.h
         ${HEADER_PATH}/InverseMatrices.h
         ${HEADER_PATH}/AtmosphereImage.h
+        ${HEADER_PATH}/AtmosphereTrackball.h
         ${HEADER_PATH}/Clouds.h
 )
 

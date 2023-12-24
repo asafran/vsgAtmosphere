@@ -1,6 +1,6 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
-#pragma import_defines (ATMOSHPERE_CLOUDS)
+#pragma import_defines (ATMOSHPERE_CLOUDS, ATMOSHPERE_VIEWER_IN_SPACE)
 
 #include "rendering_constants.glsl"
 #include "constants.glsl"
@@ -26,10 +26,11 @@ layout(set = ATMOSHPERE_DESCRIPTOR_SET, binding = 4, std140) uniform Settings
 	vec2 sunSize;
 } settings;
 
-layout(set = ATMOSHPERE_DESCRIPTOR_SET, binding = 5, std140) uniform Positional
+layout(set = POSITIONAL_DESCRIPTOR_SET, binding = 0, std140) uniform Positional
 {
 	vec4 sunDirectionExp;
-    vec4 cameraPos;
+    vec4 cameraPosR;
+    float mu_s;
 } positional;
 
 #ifdef ATMOSHPERE_CLOUDS
@@ -131,7 +132,7 @@ Ray generate_ray()
 
     Ray ray;
 
-    ray.origin 	  = positional.cameraPos.xyz;
+    ray.origin 	  = positional.cameraPosR.xyz;
     ray.direction = normalize(target.xyz - ray.origin);
 
     return ray;
@@ -199,7 +200,9 @@ float remap(float original_value, float original_min, float original_max, float 
 // returns height fraction [0, 1] for point in cloud
 float height_fraction_for_point(vec3 _position)
 {
-	return clamp((length(_position) - (6300.0 + clouds.cloudMinHeight)) / (clouds.cloudMaxHeight - clouds.cloudMinHeight), 0.0f, 1.0f);
+    float radius = length(_position);
+    float height = (radius - bottom_radius ) / (top_radius - bottom_radius);
+	return clamp(height, 0.0f, 1.0f);
 }
 
 // ------------------------------------------------------------------
@@ -220,7 +223,7 @@ float sample_cloud_density(vec3 _position, float _height_fraction, float _lod, b
     position += (clouds.windDirection + vec3(0.0f, 0.1f, 0.0f)) * clouds.windSpeed * 0.0; ///time
 
     // Read the low-frequency Perlin-Worley and Worley noises.
-    vec4 low_frequency_noises = textureLod(s_ShapeNoise, position * clouds.shapeNoiseScale, _lod);
+    vec4 low_frequency_noises = textureLod(s_ShapeNoise, position *  clouds.shapeNoiseScale, _lod);
 
     // Build an FBM out of the low-frequency Worley noises to add detail to the low-frequeny Perlin-Worley noise.
     float low_freq_fbm = (low_frequency_noises.g * 0.625f) + (low_frequency_noises.b * 0.25f) + (low_frequency_noises.a * 0.125f);
@@ -370,12 +373,12 @@ vec4 ray_march(vec3 _ray_origin, vec3 _ray_direction, float _cos_angle, float _s
     vec3  accum_scattering    = vec3(0.0f);
     float alpha               = 0.0f;
 
-	vec3 sun_color = GetSolarRadiance();
+	vec3 sun_color = vec3(1.0);//GetSolarRadiance();
 
 	for (float i = 0.0f; i < _num_steps; i+= step_increment)
 	{
 		float height_fraction    = height_fraction_for_point(position);
-		float density            = sample_cloud_density(position, height_fraction, 0.0f, true);
+		float density            = sample_cloud_density(position, height_fraction, 0.0f, false);
         float step_transmittance = beer_lambert_law(density * _step_size);
 
         accum_transmittance *= step_transmittance;
@@ -384,7 +387,7 @@ vec4 ray_march(vec3 _ray_origin, vec3 _ray_direction, float _cos_angle, float _s
 		{
             alpha += (1.0f - step_transmittance) * (1.0f - alpha);
 
-            float cone_density = sample_cloud_density_along_cone(position, positional.sunDirectionExp.xyz);
+            float cone_density = sample_cloud_density_along_cone(position, vec3( 0.00, 0.84805, -0.52992));
 
             vec3 in_scattered_light = calculate_light_energy(cone_density * _step_size, _cos_angle, density * _step_size) * sun_color * clouds.sunLightFactor * alpha;
             vec3 ambient_light      = mix(clouds.cloudBaseColor, vec3(1.0), height_fraction) * clouds.ambientLightFactor; ///top colour
@@ -400,19 +403,219 @@ vec4 ray_march(vec3 _ray_origin, vec3 _ray_direction, float _cos_angle, float _s
 
 // ------------------------------------------------------------------
 #endif
+
+#ifdef ATMOSHPERE_VIEWER_IN_SPACE
+RadianceSpectrum GetSkyRadiance(
+
+    IN(TransmittanceTexture) transmittance_texture,
+    IN(ReducedScatteringTexture) scattering_texture,
+    IN(ReducedScatteringTexture) single_mie_scattering_texture,
+    Position camera, IN(Direction) view_ray, Length shadow_length,
+    IN(Direction) sun_direction, OUT(DimensionlessSpectrum) transmittance) {
+  // Compute the distance to the top atmosphere boundary along the view ray,
+  // assuming the viewer is in space (or NaN if the view ray does not intersect
+  // the atmosphere).
+  Length r = length(camera);
+  Length rmu = dot(camera, view_ray);
+  Length distance_to_top_atmosphere_boundary = -rmu -
+      sqrt(rmu * rmu - r * r + top_radius * top_radius);
+  // If the viewer is in space and the view ray intersects the  move
+  // the viewer to the top atmosphere boundary (along the view ray):
+  if (distance_to_top_atmosphere_boundary > 0.0 * m) {
+    camera = camera + view_ray * distance_to_top_atmosphere_boundary;
+    r = top_radius;
+    rmu += distance_to_top_atmosphere_boundary;
+  } else if (r > top_radius) {
+    // If the view ray does not intersect the  simply return 0.
+    transmittance = DimensionlessSpectrum(1.0);
+    return RadianceSpectrum(0.0 * watt_per_square_meter_per_sr_per_nm);
+  }
+  // Compute the r, mu, mu_s and nu parameters needed for the texture lookups.
+  Number mu = rmu / r;
+  Number mu_s = dot(camera, sun_direction) / r;
+  Number nu = dot(view_ray, sun_direction);
+  bool ray_r_mu_intersects_ground = RayIntersectsGround( r, mu);
+
+  transmittance = ray_r_mu_intersects_ground ? DimensionlessSpectrum(0.0) :
+      GetTransmittanceToTopAtmosphereBoundary(
+           transmittance_texture, r, mu);
+  IrradianceSpectrum single_mie_scattering;
+  IrradianceSpectrum scattering;
+  if (shadow_length == 0.0 * m) {
+    scattering = GetCombinedScattering(
+         scattering_texture, single_mie_scattering_texture,
+        r, mu, mu_s, nu, ray_r_mu_intersects_ground,
+        single_mie_scattering);
+  } else {
+    // Case of light shafts (shadow_length is the total length noted l in our
+    // paper): we omit the scattering between the camera and the point at
+    // distance l, by implementing Eq. (18) of the paper (shadow_transmittance
+    // is the T(x,x_s) term, scattering is the S|x_s=x+lv term).
+    Length d = shadow_length;
+    Length r_p =
+        ClampRadius( sqrt(d * d + 2.0 * r * mu * d + r * r));
+    Number mu_p = (r * mu + d) / r_p;
+    Number mu_s_p = (r * mu_s + d * nu) / r_p;
+
+    scattering = GetCombinedScattering(
+         scattering_texture, single_mie_scattering_texture,
+        r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
+        single_mie_scattering);
+    DimensionlessSpectrum shadow_transmittance =
+        GetTransmittance( transmittance_texture,
+            r, mu, shadow_length, ray_r_mu_intersects_ground);
+    scattering = scattering * shadow_transmittance;
+    single_mie_scattering = single_mie_scattering * shadow_transmittance;
+  }
+  return scattering * RayleighPhaseFunction(nu) + single_mie_scattering *
+      MiePhaseFunction(mie_phase_function_g, nu);
+}
+#else
+RadianceSpectrum GetSkyRadiance(
+
+    IN(TransmittanceTexture) transmittance_texture,
+    IN(ReducedScatteringTexture) scattering_texture,
+    IN(ReducedScatteringTexture) single_mie_scattering_texture,
+    IN(Length) rmu, IN(Length) nu, IN(Direction) view_ray, Length shadow_length,
+    IN(Direction) sun_direction, OUT(DimensionlessSpectrum) transmittance) {
+  // Compute the distance to the top atmosphere boundary along the view ray,
+  // assuming the viewer is in space (or NaN if the view ray does not intersect
+  // the atmosphere).
+  Length r = positional.cameraPosR.w;
+  Length distance_to_top_atmosphere_boundary = -rmu -
+      sqrt(rmu * rmu - r * r + top_radius * top_radius);
+
+  // Compute the r, mu, mu_s and nu parameters needed for the texture lookups.
+  Number mu = rmu / r;
+  Number mu_s = positional.mu_s;
+  bool ray_r_mu_intersects_ground = RayIntersectsGround( r, mu);
+
+  transmittance = ray_r_mu_intersects_ground ? DimensionlessSpectrum(0.0) :
+      GetTransmittanceToTopAtmosphereBoundary(
+           transmittance_texture, r, mu);
+  IrradianceSpectrum single_mie_scattering;
+  IrradianceSpectrum scattering;
+  if (shadow_length == 0.0 * m) {
+    scattering = GetCombinedScattering(
+         scattering_texture, single_mie_scattering_texture,
+        r, mu, mu_s, nu, ray_r_mu_intersects_ground,
+        single_mie_scattering);
+  } else {
+    // Case of light shafts (shadow_length is the total length noted l in our
+    // paper): we omit the scattering between the camera and the point at
+    // distance l, by implementing Eq. (18) of the paper (shadow_transmittance
+    // is the T(x,x_s) term, scattering is the S|x_s=x+lv term).
+    Length d = shadow_length;
+    Length r_p =
+        ClampRadius( sqrt(d * d + 2.0 * r * mu * d + r * r));
+    Number mu_p = (r * mu + d) / r_p;
+    Number mu_s_p = (r * mu_s + d * nu) / r_p;
+
+    scattering = GetCombinedScattering(
+         scattering_texture, single_mie_scattering_texture,
+        r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
+        single_mie_scattering);
+    DimensionlessSpectrum shadow_transmittance =
+        GetTransmittance( transmittance_texture,
+            r, mu, shadow_length, ray_r_mu_intersects_ground);
+    scattering = scattering * shadow_transmittance;
+    single_mie_scattering = single_mie_scattering * shadow_transmittance;
+  }
+  return scattering * RayleighPhaseFunction(nu) + single_mie_scattering *
+      MiePhaseFunction(mie_phase_function_g, nu);
+}
+#endif
+
 void main()
 {
+    // Generate a camera ray to the current fragment.
 	vec3 view_direction = normalize(inRay);
 
-    //vec3 cameraPos = pc.modelView[3].xyz;
+    float r = positional.cameraPosR.w;
+    float rmu = dot(positional.cameraPosR.xyz, view_direction);
+    Number nu = dot(view_direction, positional.sunDirectionExp.xyz);
 
-	// Compute the radiance of the sky.
+    float cloudsMin = bottom_radius + clouds.cloudMinHeight;
+    float cloudsMax = bottom_radius + clouds.cloudMaxHeight;
+
+    float distance_to_top_clouds_boundary = rmu +
+      sqrt(rmu * rmu - r * r + top_radius * top_radius);
+    float distance_to_bottom_clouds_boundary = rmu +
+      sqrt(rmu * rmu - r * r + bottom_radius * bottom_radius);
+
+    // Compute the radiance of the sky.
 	vec3 transmittance;
-	vec3 radiance = GetSkyRadiance(positional.cameraPos.xyz, view_direction, 4.0, positional.sunDirectionExp.xyz, transmittance);
+	vec3 radiance = GetSkyRadiance(s_Transmittance,
+                                   s_Scattering,
+                                s_SingleMieScattering, rmu, nu,
+                                view_direction,
+                                4.0,
+                                positional.sunDirectionExp.xyz,
+                                transmittance) * SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
 
 	// If the view ray intersects the Sun, add the Sun radiance.
 	if (dot(view_direction, positional.sunDirectionExp.xyz) > settings.sunSize.y)
 		radiance = radiance + transmittance * GetSolarRadiance();
 
-	outColor = vec4(pow(vec3(1.0) - exp(-radiance / settings.whitePoint.rbg * positional.sunDirectionExp.a), vec3(1.0 / 2.2)), 1.0);
+	vec4 sky = vec4(pow(vec3(1.0) - exp(-radiance / settings.whitePoint.rbg * positional.sunDirectionExp.a), vec3(1.0 / 2.2)), 1.0);
+/*
+    vec4 cloud = vec4(0.0);
+    if(distance_to_bottom_clouds_boundary < distance_to_top_clouds_boundary)
+    {
+        // Get a random number that we'll use to jitter our ray.
+        const float rng = blue_noise();
+
+        // The maximum number of ray march steps to use.
+        const float max_steps = clouds.maxNumSteps;
+
+        // The minimum number of ray march steps to use with an added offset to prevent banding.
+        const float min_steps = (clouds.maxNumSteps * 0.5f) + (rng * 2.0f);
+
+        // The number of ray march steps is determined depending on how steep the viewing angle is.
+        float num_steps = mix(max_steps, min_steps, view_direction.y);
+
+        // Using the number of steps we can determine the step size of our ray march.
+        float step_size = (distance_to_top_clouds_boundary - distance_to_bottom_clouds_boundary) / num_steps;
+
+        // Jitter the ray to prevent banding.
+        vec3 ray_start = positional.cameraPosR.xyz + (distance_to_bottom_clouds_boundary * view_direction);// + step_size * view_direction * rng;
+
+        cloud = ray_march(ray_start, view_direction, nu, step_size, num_steps);
+    }
+    //vec3 cameraPos = pc.modelView[3].xyz;
+*/
+
+// Generate a camera ray to the current fragment.
+	Ray ray = generate_ray();
+    //ray.direction = view_direction;
+
+	// Figure out where our ray will intersect the sphere that represents the beginning of the cloud layer.
+	vec3 ray_start = ray_sphere_intersection(ray, vec3(0.0), bottom_radius);
+
+	// Similarly, figure out where the ray intersects the end of the cloud layer.
+	vec3 ray_end   = ray_sphere_intersection(ray, vec3(0.0), top_radius);
+
+	// Get a random number that we'll use to jitter our ray.
+	const float rng = blue_noise();
+
+	// The maximum number of ray march steps to use.
+	const float max_steps = clouds.maxNumSteps;
+
+	// The minimum number of ray march steps to use with an added offset to prevent banding.
+	const float min_steps = (clouds.maxNumSteps * 0.5f) + (rng * 2.0f);
+
+	// The number of ray march steps is determined depending on how steep the viewing angle is.
+	float num_steps = mix(max_steps, min_steps, ray.direction.y);
+
+	// Using the number of steps we can determine the step size of our ray march.
+	float step_size = length(ray_start - ray_end) / num_steps;
+
+	// Jitter the ray to prevent banding.
+	ray_start += step_size * ray.direction * rng;
+
+	float cos_angle = dot(ray.direction, vec3( 0.00, 0.84805, -0.52992));
+	vec4  cloud    = ray_march(ray_start, ray.direction, cos_angle, step_size, num_steps);
+
+    //outColor = vec4(clouds.rgb + (1.0f - clouds.a) * sky.rgb, 1.0);
+    outColor = vec4(cloud.rgb, 1.0);
 }

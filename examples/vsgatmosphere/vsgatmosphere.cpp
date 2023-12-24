@@ -1,4 +1,5 @@
 #include "AtmosphereLighting.h"
+#include "AtmosphereTrackball.h"
 #include <vsg/all.h>
 
 #ifdef vsgXchange_FOUND
@@ -171,6 +172,7 @@ int main(int argc, char** argv)
         // add close handler to respond the close window button and pressing escape
         viewer->addEventHandler(vsg::CloseHandler::create(viewer));
 
+        //auto trackball = atmosphere::AtmosphereTrackball::create(camera, ellipsoidModel);
         auto trackball = vsg::Trackball::create(camera, ellipsoidModel);
 
         trackball->addKeyViewpoint(vsg::KeySymbol('1'), 51.50151088842245, -0.14181489107549874, 10.0, 2.0); // Grenwish Observatory

@@ -23,7 +23,9 @@ namespace atmosphere {
 
         auto eye_position = mv * vsg::dvec3();
         eye_position /= atmosphereRuntime->lengthUnitInMeters;
-        p.cameraPos.set(static_cast<float>(eye_position.x), static_cast<float>(eye_position.y), static_cast<float>(eye_position.z), 0.0f);
+        p.cameraPosR.set(static_cast<float>(eye_position.x), static_cast<float>(eye_position.y), static_cast<float>(eye_position.z), static_cast<float>(vsg::length(eye_position)));
+
+        p.mu_s = vsg::dot(eye_position, eye_direction) / p.cameraPosR.w;
         atmosphereRuntime->positionalBinding->positional->set(p);
         atmosphereRuntime->positionalBinding->positional->dirty();
 
@@ -50,7 +52,9 @@ namespace atmosphere {
 
         auto eye_position = mv[3].xyz;
         eye_position /= atmosphereRuntime->lengthUnitInMeters;
-        p.cameraPos.set(static_cast<float>(eye_position.x), static_cast<float>(eye_position.y), static_cast<float>(eye_position.z), 0.0f);
+        p.cameraPosR.set(static_cast<float>(eye_position.x), static_cast<float>(eye_position.y), static_cast<float>(eye_position.z), static_cast<float>(vsg::length(eye_position)));
+
+        p.mu_s = vsg::dot(eye_position, eye_direction) / p.cameraPosR.w;
         atmosphereRuntime->inversePositionalBinding->positional->set(p);
         atmosphereRuntime->inversePositionalBinding->positional->dirty();
     }

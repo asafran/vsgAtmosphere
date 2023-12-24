@@ -31,7 +31,8 @@ namespace atmosphere {
     struct Positional
     {
         vsg::vec4 sunDirectionExp;
-        vsg::vec4 cameraPos;
+        vsg::vec4 cameraPosR;
+        float mu_s = 0.0f;
     };
 
     class PositionalBinding : public vsg::Inherit<vsg::CustomDescriptorSetBinding, PositionalBinding>
@@ -80,13 +81,13 @@ namespace atmosphere {
 
     struct CloudRuntimeSettings
     {
-        float 	  cloudMinHeight = 1500.0f;
-        float 	  cloudMaxHeight = 4000.0f;
-        float 	  shapeNoiseScale = 0.3f;
-        float 	  detailNoiseScale = 5.5f;
+        float 	  cloudMinHeight = 4000.0f;
+        float 	  cloudMaxHeight = 1500.0f;
+        float 	  shapeNoiseScale = 0.00241f;
+        float 	  detailNoiseScale = 0.01326f;
 
         float 	  detailNoiseModifier = 0.5f;
-        float 	  turbulenceNoiseScale = 7.440f;
+        float 	  turbulenceNoiseScale = 0.01793f;
         float 	  turbulenceAmount = 1.0f;
         float 	  cloudCoverage = 0.7f;
 
@@ -94,8 +95,8 @@ namespace atmosphere {
         float	  windSpeed = 0.0f;
 
         float	  windShearOffset = 500.0f;
-        uint16_t	  maxNumSteps = 128;
-        float 	  lightStepLength = 64.0f;
+        uint16_t	  maxNumSteps = 8;
+        float 	  lightStepLength = 128.0f;
         float 	  lightConeRadius = 0.4f;
 
         vsg::vec3      cloudBaseColor = {1.0f, 1.0f, 1.0f};
