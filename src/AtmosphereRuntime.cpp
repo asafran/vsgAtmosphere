@@ -24,7 +24,7 @@ namespace atmosphere {
         return vsg::Object::compare(rhs);
     }
 
-    bool AtmosphereRuntime::createPhongShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts)
+    bool AtmosphereRuntime::createPhongShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts, bool radiance)
     {
         auto vertexModule = options->getRefObject<vsg::ShaderModule>(std::string(phongVertShader));
         auto fragmentModule = options->getRefObject<vsg::ShaderModule>(std::string(phongFragShader));
@@ -71,8 +71,12 @@ namespace atmosphere {
 
         shaderSet->addDescriptorBinding("positional", "", POSITIONAL_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
+        shaderSet->defaultShaderHints = vsg::ShaderCompileSettings::create();
+
         // additional defines
-        shaderSet->optionalDefines = {"VSG_GREYSACLE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_POINT_SPRITE"};
+        shaderSet->optionalDefines = {"ATMOSHPERE_RADIANCE", "ATMOSHPERE_VIEWER_IN_SPACE", "ATMOSHPERE_COMBINED_SCATTERING_TEXTURES", "VSG_GREYSACLE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_POINT_SPRITE"};
+        if(radiance)
+            shaderSet->defaultShaderHints->defines.insert("ATMOSHPERE_RADIANCE");
 
         shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
 
@@ -90,7 +94,7 @@ namespace atmosphere {
         return true;
     }
 
-    bool AtmosphereRuntime::createPBRShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts)
+    bool AtmosphereRuntime::createPBRShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts, bool radiance)
     {
         vsg::info("Local pbr_ShaderSet(",options,")");
 
@@ -142,8 +146,12 @@ namespace atmosphere {
 
         shaderSet->addDescriptorBinding("positional", "", POSITIONAL_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
+        shaderSet->defaultShaderHints = vsg::ShaderCompileSettings::create();
+
         // additional defines
-        shaderSet->optionalDefines = {"VSG_GREYSCALE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_WORKFLOW_SPECGLOSS"};
+        shaderSet->optionalDefines = {"ATMOSHPERE_RADIANCE", "ATMOSHPERE_VIEWER_IN_SPACE", "ATMOSHPERE_COMBINED_SCATTERING_TEXTURES", "VSG_GREYSCALE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_WORKFLOW_SPECGLOSS"};
+        if(radiance)
+            shaderSet->defaultShaderHints->defines.insert("ATMOSHPERE_RADIANCE");
 
         shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
 
@@ -161,7 +169,7 @@ namespace atmosphere {
         return true;
     }
 
-    bool AtmosphereRuntime::createSkyShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts)
+    bool AtmosphereRuntime::createSkyShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts, bool radiance)
     {
         auto vertexModule = options->getRefObject<vsg::ShaderModule>(std::string(skyVertShader));
         auto fragmentModule = options->getRefObject<vsg::ShaderModule>(std::string(skyFragShader));
@@ -187,12 +195,11 @@ namespace atmosphere {
 
         shaderSet->addDescriptorBinding("positional", "", POSITIONAL_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
-        shaderSet->addDescriptorBinding("s_ShapeNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
-        shaderSet->addDescriptorBinding("s_DetailNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
-        shaderSet->addDescriptorBinding("s_BlueNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
-        shaderSet->addDescriptorBinding("s_CurlNoise", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->defaultShaderHints = vsg::ShaderCompileSettings::create();
 
-        shaderSet->addDescriptorBinding("clouds", "ATMOSHPERE_CLOUDS", CLOUDS_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->optionalDefines = {"ATMOSHPERE_RADIANCE", "ATMOSHPERE_VIEWER_IN_SPACE"};
+        if(radiance)
+            shaderSet->defaultShaderHints->defines.insert("ATMOSHPERE_RADIANCE");
 
         shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
 
@@ -380,7 +387,7 @@ namespace atmosphere {
     }
     */
 
-    vsg::ref_ptr<vsg::Node> AtmosphereRuntime::createSky()
+    vsg::ref_ptr<vsg::Node> AtmosphereRuntime::createSky(bool viewerInSpace)
     {
         auto drawCommands = vsg::Commands::create();
 
@@ -392,26 +399,9 @@ namespace atmosphere {
         auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(skyShaderSet);
 
         auto& defines = graphicsPipelineConfig->shaderHints->defines;
-/*
-        graphicsPipelineConfig->enableTexture("s_Transmittance");
-        graphicsPipelineConfig->enableTexture("s_Irradiance");
-        graphicsPipelineConfig->enableTexture("s_Scattering");
-        graphicsPipelineConfig->enableTexture("s_SingleMieScattering");
 
-        graphicsPipelineConfig->enableDescriptor("settings");
-
-        graphicsPipelineConfig->enableDescriptor("positional");
-*/
-        if (cloudsBinding)
-        {
-            defines.insert("ATMOSHPERE_CLOUDS");
-/*
-            graphicsPipelineConfig->enableTexture("s_ShapeNoise");
-            graphicsPipelineConfig->enableTexture("s_DetailNoise");
-            graphicsPipelineConfig->enableTexture("s_BlueNoise");
-            graphicsPipelineConfig->enableTexture("s_CurlNoise");
-*/
-        }
+        if(viewerInSpace)
+            defines.insert("ATMOSHPERE_VIEWER_IN_SPACE");
 
         struct SetPipelineStates : public vsg::Visitor
         {

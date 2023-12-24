@@ -18,14 +18,15 @@ namespace atmosphere {
         Positional p;
         auto mv =  view->camera->viewMatrix->transform();
         auto eye_direction = -normalize(atmosphereRuntime->sunDirection * vsg::inverse_3x3(mv));
-        vsg::vec4 directionExposure{static_cast<float>(eye_direction.x), static_cast<float>(eye_direction.y), static_cast<float>(eye_direction.z), static_cast<float>(exposure * 1e-6)};
-        p.sunDirectionExp = directionExposure;
+        p.sunDirection.set(static_cast<float>(eye_direction.x), static_cast<float>(eye_direction.y), static_cast<float>(eye_direction.z));
+        p.exposure = static_cast<float>(exposure * 1e-6);
 
         auto eye_position = mv * vsg::dvec3();
         eye_position /= atmosphereRuntime->lengthUnitInMeters;
-        p.cameraPosR.set(static_cast<float>(eye_position.x), static_cast<float>(eye_position.y), static_cast<float>(eye_position.z), static_cast<float>(vsg::length(eye_position)));
+        p.cameraPos.set(static_cast<float>(eye_position.x), static_cast<float>(eye_position.y), static_cast<float>(eye_position.z));
+        p.raduis = static_cast<float>(vsg::length(eye_position));
 
-        p.mu_s = vsg::dot(eye_position, eye_direction) / p.cameraPosR.w;
+        p.mu_s = vsg::dot(eye_position, eye_direction) / p.raduis;
         atmosphereRuntime->positionalBinding->positional->set(p);
         atmosphereRuntime->positionalBinding->positional->dirty();
 
@@ -46,15 +47,15 @@ namespace atmosphere {
         Positional p;
         auto mv =  view->camera->viewMatrix->transform();
         auto eye_direction = -normalize(-atmosphereRuntime->sunDirection);
-        vsg::vec4 directionExposure{static_cast<float>(eye_direction.x), static_cast<float>(eye_direction.y), static_cast<float>(eye_direction.z), static_cast<float>(exposure * 1e-6)};
-        p.sunDirectionExp = directionExposure;
-
+        p.sunDirection.set(static_cast<float>(eye_direction.x), static_cast<float>(eye_direction.y), static_cast<float>(eye_direction.z));
+        p.exposure = static_cast<float>(exposure * 1e-6);
 
         auto eye_position = mv[3].xyz;
         eye_position /= atmosphereRuntime->lengthUnitInMeters;
-        p.cameraPosR.set(static_cast<float>(eye_position.x), static_cast<float>(eye_position.y), static_cast<float>(eye_position.z), static_cast<float>(vsg::length(eye_position)));
+        p.cameraPos.set(static_cast<float>(eye_position.x), static_cast<float>(eye_position.y), static_cast<float>(eye_position.z));
+        p.raduis = static_cast<float>(vsg::length(eye_position));
 
-        p.mu_s = vsg::dot(eye_position, eye_direction) / p.cameraPosR.w;
+        p.mu_s = vsg::dot(eye_position, eye_direction) / p.raduis;
         atmosphereRuntime->inversePositionalBinding->positional->set(p);
         atmosphereRuntime->inversePositionalBinding->positional->dirty();
     }

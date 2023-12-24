@@ -13,7 +13,7 @@ namespace atmosphere
         void clampToGlobe() override;
 
         double minimumAltitude = 1.0;
-        double maximumAltitude = 1000.0;
+        double maximumAltitude = 6000.0;
     };
 }
 

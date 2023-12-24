@@ -81,7 +81,8 @@ public:
     unsigned int irradianceWidth = 64;
     unsigned int irradianceHeight = 16;
 
-    bool clouds = true;
+    bool clouds = false;
+    bool radiance = true;
 
     unsigned int detailNoiseSize = 32;
     unsigned int shapeNoiseSize = 128;

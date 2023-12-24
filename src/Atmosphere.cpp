@@ -506,8 +506,8 @@ vsg::ref_ptr<AtmosphereBinding> AtmosphereGenerator::loadData()
 vsg::ref_ptr<AtmosphereRuntime> AtmosphereGenerator::createRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<CloudsBinding> clouds)
 {
     auto runtimeData = AtmosphereRuntime::create(atmosphere, clouds);
-    runtimeData->createPhongShaderSet(_options, _renderConstants);
-    runtimeData->createSkyShaderSet(_options, _renderConstants);
+    runtimeData->createPhongShaderSet(_options, _renderConstants, _settings->radiance);
+    runtimeData->createSkyShaderSet(_options, _renderConstants, _settings->radiance);
 
     runtimeData->ellipsoidModel = _settings->ellipsoidModel;
     runtimeData->atmosphereBinding->settings->value() = {vsg::vec4(convertSpectrumToLinearSrgb(3.0), 0.0f), {std::tan(_settings->sunAngularRadius), std::cos(_settings->sunAngularRadius)}};

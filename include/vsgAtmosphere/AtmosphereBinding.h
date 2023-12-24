@@ -30,8 +30,10 @@ namespace atmosphere {
 
     struct Positional
     {
-        vsg::vec4 sunDirectionExp;
-        vsg::vec4 cameraPosR;
+        vsg::vec3 sunDirection;
+        float exposure = 0.0f;
+        vsg::vec3 cameraPos;
+        float raduis = 0.0f;
         float mu_s = 0.0f;
     };
 
