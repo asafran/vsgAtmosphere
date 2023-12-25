@@ -19,7 +19,7 @@ namespace atmosphere {
         auto mv =  view->camera->viewMatrix->transform();
         auto eye_direction = -normalize(atmosphereRuntime->sunDirection * vsg::inverse_3x3(mv));
         p.sunDirection.set(static_cast<float>(eye_direction.x), static_cast<float>(eye_direction.y), static_cast<float>(eye_direction.z));
-        p.exposure = static_cast<float>(exposure * 1e-6);
+        p.exposure = static_cast<float>(exposure * atmosphereRuntime->exposureModifier);
 
         auto eye_position = mv * vsg::dvec3();
         eye_position /= atmosphereRuntime->lengthUnitInMeters;
@@ -48,7 +48,7 @@ namespace atmosphere {
         auto mv =  view->camera->viewMatrix->transform();
         auto eye_direction = -normalize(-atmosphereRuntime->sunDirection);
         p.sunDirection.set(static_cast<float>(eye_direction.x), static_cast<float>(eye_direction.y), static_cast<float>(eye_direction.z));
-        p.exposure = static_cast<float>(exposure * 1e-6);
+        p.exposure = static_cast<float>(exposure * atmosphereRuntime->exposureModifier);
 
         auto eye_position = mv[3].xyz;
         eye_position /= atmosphereRuntime->lengthUnitInMeters;

@@ -82,7 +82,6 @@ public:
     unsigned int irradianceHeight = 16;
 
     bool clouds = false;
-    bool radiance = true;
 
     unsigned int detailNoiseSize = 32;
     unsigned int shapeNoiseSize = 128;
@@ -197,6 +196,10 @@ public:
     /// </summary>
 
     int precomputedWavelenghts = 15;
+
+    bool radiance = true;
+
+    double radianceExposure = 1e-6;
 
     int scatteringOrders = 4;
 };
@@ -322,7 +325,7 @@ private:
     unsigned int scatteringHeight() const { return _settings->scaterringMU; }
     unsigned int scatteringDepth() const { return _settings->scaterringR; }
 
-    vsg::ref_ptr<vsg::BindComputePipeline> bindCompute(const vsg::Path& filename, vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout) const;
+    vsg::ref_ptr<vsg::BindComputePipeline> bindCompute(const std::string &key, vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout) const;
     vsg::ref_ptr<vsg::DescriptorSet> bindTransmittance() const;
     vsg::ref_ptr<vsg::DescriptorSet> bindDirectIrradiance() const;
     vsg::ref_ptr<vsg::DescriptorSet> bindSingleScattering() const;
@@ -336,14 +339,12 @@ private:
     vsg::ref_ptr<vsg::DescriptorSetLayout> parametersLayout() const;
     vsg::ref_ptr<vsg::DescriptorSetLayout> orderLayout() const;
 
-    void assignComputeConstants();
     void assignRenderConstants();
 
     friend class AtmosphereLighting;
 };
 
 extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
-extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::EllipsoidModel> eps, vsg::ref_ptr<vsg::Options> options);
 extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
 extern vsg::ref_ptr<AtmosphereRuntime> createAtmosphereRuntime(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
 }

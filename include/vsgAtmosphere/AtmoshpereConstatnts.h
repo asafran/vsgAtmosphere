@@ -158,5 +158,12 @@ constexpr double XYZ_TO_SRGB[9] = {
     constexpr std::string_view pbrFragShader = "pbr_fs.glsl";
     constexpr std::string_view pbrVertShader = "standard.glsl";
 
+    constexpr std::string_view transmittanceShader = "compute_transmittance_cs.glsl";
+    constexpr std::string_view directIrradianceShader = "compute_direct_irradiance_cs.glsl";
+    constexpr std::string_view singleScatteringShader = "compute_single_scattering_cs.glsl";
+    constexpr std::string_view scatteringDensityShader = "compute_scattering_density_cs.glsl";
+    constexpr std::string_view indirectIrradianceShader = "compute_indirect_irradiance_cs.glsl";
+    constexpr std::string_view multipleScatteringShader = "compute_multiple_scattering_cs.glsl";
+
 }
 #endif // ATMOSHPERECONSTATNTS_H

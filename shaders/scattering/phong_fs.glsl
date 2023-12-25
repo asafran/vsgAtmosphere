@@ -108,177 +108,145 @@ layout(set = POSITIONAL_DESCRIPTOR_SET, binding = 0, std140) uniform Positional
 } positional;
 
 #ifdef ATMOSHPERE_VIEWER_IN_SPACE
-RadianceSpectrum GetSkyRadianceToPoint(
+RadianceSpectrum GetSkyRadianceToPoint(IN(Position) view_ray, IN(Direction) view_direction, OUT(DimensionlessSpectrum) transmittance)
+{
+    // Compute the distance to the top atmosphere boundary along the view ray,
+    // assuming the viewer is in space (or NaN if the view ray does not intersect
+    // the atmosphere).
+    Position camera = positional.cameraPos;
+    Length r = positional.radius;
+    Length rmu = dot(camera, view_direction);
+    Length distance_to_top_atmosphere_boundary = -rmu -
+        sqrt(rmu * rmu - r * r + top_radius * top_radius);
+    // If the viewer is in space and the view ray intersects the  move
+    // the viewer to the top atmosphere boundary (along the view ray):
+    if (distance_to_top_atmosphere_boundary > 0.0 * m) {
+        camera = camera + view_direction * distance_to_top_atmosphere_boundary;
+        r = top_radius;
+        rmu += distance_to_top_atmosphere_boundary;
+    }
 
-    IN(TransmittanceTexture) transmittance_texture,
-    IN(ReducedScatteringTexture) scattering_texture,
-    IN(ReducedScatteringTexture) single_mie_scattering_texture,
-    Position camera, IN(Position) point, Length shadow_length,
-    IN(Direction) sun_direction, OUT(DimensionlessSpectrum) transmittance) {
-  // Compute the distance to the top atmosphere boundary along the view ray,
-  // assuming the viewer is in space (or NaN if the view ray does not intersect
-  // the atmosphere).
-  Direction view_ray = normalize(point - camera);
-  Length r = length(camera);
-  Length rmu = dot(camera, view_ray);
-  Length distance_to_top_atmosphere_boundary = -rmu -
-      sqrt(rmu * rmu - r * r + top_radius * top_radius);
-  // If the viewer is in space and the view ray intersects the  move
-  // the viewer to the top atmosphere boundary (along the view ray):
-  if (distance_to_top_atmosphere_boundary > 0.0 * m) {
-    camera = camera + view_ray * distance_to_top_atmosphere_boundary;
-    r = top_radius;
-    rmu += distance_to_top_atmosphere_boundary;
-  }
+    // Compute the r, mu, mu_s and nu parameters for the first texture lookup.
+    Number mu = rmu / r;
+    Number mu_s = dot(camera, sun_direction) / r;
+    Number nu = dot(view_direction, sun_direction);
+    Length d = length(view_ray);
+    bool ray_r_mu_intersects_ground = RayIntersectsGround( r, mu);
 
-  // Compute the r, mu, mu_s and nu parameters for the first texture lookup.
-  Number mu = rmu / r;
-  Number mu_s = dot(camera, sun_direction) / r;
-  Number nu = dot(view_ray, sun_direction);
-  Length d = length(point - camera);
-  bool ray_r_mu_intersects_ground = RayIntersectsGround( r, mu);
-
-  transmittance = GetTransmittance( transmittance_texture,
-      r, mu, d, ray_r_mu_intersects_ground);
-
-  IrradianceSpectrum single_mie_scattering;
-  IrradianceSpectrum scattering = GetCombinedScattering(
-       scattering_texture, single_mie_scattering_texture,
-      r, mu, mu_s, nu, ray_r_mu_intersects_ground,
-      single_mie_scattering);
-
-  // Compute the r, mu, mu_s and nu parameters for the second texture lookup.
-  // If shadow_length is not 0 (case of light shafts), we want to ignore the
-  // scattering along the last shadow_length meters of the view ray, which we
-  // do by subtracting shadow_length from d (this way scattering_p is equal to
-  // the S|x_s=x_0-lv term in Eq. (17) of our paper).
-  d = max(d - shadow_length, 0.0 * m);
-  Length r_p = ClampRadius( sqrt(d * d + 2.0 * r * mu * d + r * r));
-  Number mu_p = (r * mu + d) / r_p;
-  Number mu_s_p = (r * mu_s + d * nu) / r_p;
-
-  IrradianceSpectrum single_mie_scattering_p;
-  IrradianceSpectrum scattering_p = GetCombinedScattering(
-       scattering_texture, single_mie_scattering_texture,
-      r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
-      single_mie_scattering_p);
-
-  // Combine the lookup results to get the scattering between camera and point.
-  DimensionlessSpectrum shadow_transmittance = transmittance;
-  if (shadow_length > 0.0 * m) {
-    // This is the T(x,x_s) term in Eq. (17) of our paper, for light shafts.
-    shadow_transmittance = GetTransmittance( transmittance_texture,
+    transmittance = GetTransmittance( transmittance_texture,
         r, mu, d, ray_r_mu_intersects_ground);
-  }
-  scattering = scattering - shadow_transmittance * scattering_p;
-  single_mie_scattering =
-      single_mie_scattering - shadow_transmittance * single_mie_scattering_p;
-#ifdef COMBINED_SCATTERING_TEXTURES
-  single_mie_scattering = GetExtrapolatedSingleMieScattering(
-       vec4(scattering, single_mie_scattering.r));
-#endif
 
-  // Hack to avoid rendering artifacts when the sun is below the horizon.
-  single_mie_scattering = single_mie_scattering *
-      smoothstep(Number(0.0), Number(0.01), mu_s);
+    IrradianceSpectrum single_mie_scattering;
+    IrradianceSpectrum scattering = GetCombinedScattering(
+        scattering_texture, single_mie_scattering_texture,
+        r, mu, mu_s, nu, ray_r_mu_intersects_ground,
+        single_mie_scattering);
 
-  return scattering * RayleighPhaseFunction(nu) + single_mie_scattering *
-      MiePhaseFunction(mie_phase_function_g, nu);
-}
+    // Compute the r, mu, mu_s and nu parameters for the second texture lookup.
+    // If shadow_length is not 0 (case of light shafts), we want to ignore the
+    // scattering along the last shadow_length meters of the view ray, which we
+    // do by subtracting shadow_length from d (this way scattering_p is equal to
+    // the S|x_s=x_0-lv term in Eq. (17) of our paper).
+    Length r_p = ClampRadius( sqrt(d * d + 2.0 * r * mu * d + r * r));
+    Number mu_p = (r * mu + d) / r_p;
+    Number mu_s_p = (r * mu_s + d * nu) / r_p;
 
-IrradianceSpectrum GetSunAndSkyIrradiance(
-    IN(Position) point, IN(Direction) normal, IN(Direction) sun_direction,
-    OUT(IrradianceSpectrum) sky_irradiance) {
+    IrradianceSpectrum single_mie_scattering_p;
+    IrradianceSpectrum scattering_p = GetCombinedScattering(
+        scattering_texture, single_mie_scattering_texture,
+        r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
+        single_mie_scattering_p);
 
-  Length r = length(point);
-  Number mu_s = dot(point, sun_direction) / r;
+    // Combine the lookup results to get the scattering between camera and point.
+    scattering = scattering - transmittance * scattering_p;
+    single_mie_scattering =
+        single_mie_scattering - transmittance * single_mie_scattering_p;
+    #ifdef ATMOSHPERE_COMBINED_SCATTERING_TEXTURES
+    single_mie_scattering = GetExtrapolatedSingleMieScattering(
+        vec4(scattering, single_mie_scattering.r));
+    #endif
 
-  // Indirect irradiance (approximated if the surface is not horizontal).
-  sky_irradiance = GetIrradiance( irradiance_texture, r, mu_s) *
-      (1.0 + dot(normal, point) / r) * 0.5;
+    // Hack to avoid rendering artifacts when the sun is below the horizon.
+    single_mie_scattering = single_mie_scattering *
+        smoothstep(Number(0.0), Number(0.01), mu_s);
 
-  // Direct irradiance.
-  return solar_irradiance.xyz *
-      GetTransmittanceToSun(
-           transmittance_texture, r, mu_s) *
-      max(dot(normal, sun_direction), 0.0);
+    return scattering * RayleighPhaseFunction(nu) + single_mie_scattering *
+        MiePhaseFunction(mie_phase_function_g, nu);
 }
 #else
-RadianceSpectrum GetSkyRadianceToPoint( IN(Position) view_ray, IN(Direction) view_direction, OUT(DimensionlessSpectrum) transmittance) {
-  // Compute the distance to the top atmosphere boundary along the view ray,
-  // assuming the viewer is in space (or NaN if the view ray does not intersect
-  // the atmosphere).
-  Length r = positional.radius;
-  Length rmu = dot(positional.cameraPos, view_direction);
+RadianceSpectrum GetSkyRadianceToPoint( IN(Position) view_ray, IN(Direction) view_direction, OUT(DimensionlessSpectrum) transmittance)
+{
+    // Compute the distance to the top atmosphere boundary along the view ray,
+    // assuming the viewer is in space (or NaN if the view ray does not intersect
+    // the atmosphere).
+    Length r = positional.radius;
+    Length rmu = dot(positional.cameraPos, view_direction);
 
-  // Compute the r, mu, mu_s and nu parameters for the first texture lookup.
-  Number mu = rmu / r;
-  //Number mu_s = positional.mu_s;
-  Number mu_s = dot(positional.cameraPos, positional.sunDirection) / r;
-  Number nu = dot(view_direction, positional.sunDirection);
-  Length d = length(view_ray);
-  bool ray_r_mu_intersects_ground = RayIntersectsGround( r, mu);
+    // Compute the r, mu, mu_s and nu parameters for the first texture lookup.
+    Number mu = rmu / r;
+    //Number mu_s = positional.mu_s;
+    Number mu_s = dot(positional.cameraPos, positional.sunDirection) / r;
+    Number nu = dot(view_direction, positional.sunDirection);
+    Length d = length(view_ray);
+    bool ray_r_mu_intersects_ground = RayIntersectsGround( r, mu);
 
-  transmittance = GetTransmittance( transmittance_texture,
-      r, mu, d, ray_r_mu_intersects_ground);
+    transmittance = GetTransmittance( transmittance_texture,
+        r, mu, d, ray_r_mu_intersects_ground);
 
-  IrradianceSpectrum single_mie_scattering;
-  IrradianceSpectrum scattering = GetCombinedScattering(
-       scattering_texture, single_mie_scattering_texture,
-      r, mu, mu_s, nu, ray_r_mu_intersects_ground,
-      single_mie_scattering);
+    IrradianceSpectrum single_mie_scattering;
+    IrradianceSpectrum scattering = GetCombinedScattering(
+        scattering_texture, single_mie_scattering_texture,
+        r, mu, mu_s, nu, ray_r_mu_intersects_ground,
+        single_mie_scattering);
 
-  // Compute the r, mu, mu_s and nu parameters for the second texture lookup.
-  // If shadow_length is not 0 (case of light shafts), we want to ignore the
-  // scattering along the last shadow_length meters of the view ray, which we
-  // do by subtracting shadow_length from d (this way scattering_p is equal to
-  // the S|x_s=x_0-lv term in Eq. (17) of our paper).
-  Length r_p = ClampRadius( sqrt(d * d + 2.0 * r * mu * d + r * r));
-  Number mu_p = (r * mu + d) / r_p;
-  Number mu_s_p = (r * mu_s + d * nu) / r_p;
+    // Compute the r, mu, mu_s and nu parameters for the second texture lookup.
+    // If shadow_length is not 0 (case of light shafts), we want to ignore the
+    // scattering along the last shadow_length meters of the view ray, which we
+    // do by subtracting shadow_length from d (this way scattering_p is equal to
+    // the S|x_s=x_0-lv term in Eq. (17) of our paper).
+    Length r_p = ClampRadius( sqrt(d * d + 2.0 * r * mu * d + r * r));
+    Number mu_p = (r * mu + d) / r_p;
+    Number mu_s_p = (r * mu_s + d * nu) / r_p;
 
-  IrradianceSpectrum single_mie_scattering_p;
-  IrradianceSpectrum scattering_p = GetCombinedScattering(
-       scattering_texture, single_mie_scattering_texture,
-      r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
-      single_mie_scattering_p);
+    IrradianceSpectrum single_mie_scattering_p;
+    IrradianceSpectrum scattering_p = GetCombinedScattering(
+        scattering_texture, single_mie_scattering_texture,
+        r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
+        single_mie_scattering_p);
 
-  // Combine the lookup results to get the scattering between camera and point.
-  scattering = scattering - transmittance * scattering_p;
-  single_mie_scattering =
-      single_mie_scattering - transmittance * single_mie_scattering_p;
-#ifdef ATMOSHPERE_COMBINED_SCATTERING_TEXTURES
-  single_mie_scattering = GetExtrapolatedSingleMieScattering(
-       vec4(scattering, single_mie_scattering.r));
-#endif
+    // Combine the lookup results to get the scattering between camera and point.
+    scattering = scattering - transmittance * scattering_p;
+    single_mie_scattering =
+        single_mie_scattering - transmittance * single_mie_scattering_p;
+    #ifdef ATMOSHPERE_COMBINED_SCATTERING_TEXTURES
+    single_mie_scattering = GetExtrapolatedSingleMieScattering(
+        vec4(scattering, single_mie_scattering.r));
+    #endif
 
-  // Hack to avoid rendering artifacts when the sun is below the horizon.
-  single_mie_scattering = single_mie_scattering *
-      smoothstep(Number(0.0), Number(0.01), mu_s);
+    // Hack to avoid rendering artifacts when the sun is below the horizon.
+    single_mie_scattering = single_mie_scattering *
+        smoothstep(Number(0.0), Number(0.01), mu_s);
 
-  return scattering * RayleighPhaseFunction(nu) + single_mie_scattering *
-      MiePhaseFunction(mie_phase_function_g, nu);
+    return scattering * RayleighPhaseFunction(nu) + single_mie_scattering *
+        MiePhaseFunction(mie_phase_function_g, nu);
+    }
+    #endif
+
+    IrradianceSpectrum GetSunAndSkyIrradiance( IN(Position) point, IN(Direction) normal, OUT(IrradianceSpectrum) sky_irradiance)
+    {
+    Length r = length(point);
+    Number mu_s = dot(point, positional.sunDirection) / r;
+
+    // Indirect irradiance (approximated if the surface is not horizontal).
+    sky_irradiance = GetIrradiance( irradiance_texture, r, mu_s) *
+        (1.0 + dot(normal, point) / r) * 0.5;
+
+    // Direct irradiance.
+    return solar_irradiance.xyz *
+        GetTransmittanceToSun(
+            transmittance_texture, r, mu_s) *
+        max(dot(normal, positional.sunDirection), 0.0);
 }
-
-IrradianceSpectrum GetSunAndSkyIrradiance(
-    IN(Position) point, IN(Direction) normal,
-    OUT(IrradianceSpectrum) sky_irradiance) {
-
-  Length r = length(point);
-  Number mu_s = dot(point, positional.sunDirection) / r;
-
-  // Indirect irradiance (approximated if the surface is not horizontal).
-  sky_irradiance = GetIrradiance( irradiance_texture, r, mu_s) *
-      (1.0 + dot(normal, point) / r) * 0.5;
-
-  // Direct irradiance.
-  return solar_irradiance.xyz *
-      GetTransmittanceToSun(
-           transmittance_texture, r, mu_s) *
-      max(dot(normal, positional.sunDirection), 0.0);
-}
-#endif
-
 
 vec3 computeLighting(vec3 ambientColor, vec3 diffuseColor, vec3 specularColor, vec3 emissiveColor, float shininess, float ambientOcclusion, vec3 ld, vec3 nd, vec3 vd)
 {
@@ -299,7 +267,6 @@ vec3 computeLighting(vec3 ambientColor, vec3 diffuseColor, vec3 specularColor, v
 
     return result;
 }
-
 
 void main()
 {
@@ -505,7 +472,6 @@ void main()
 
     vec3 sky_irradiance;
 	vec3 sun_irradiance = GetSunAndSkyIrradiance(point, -nd, sky_irradiance);
-    //vec3 sun_irradiance = GetSunAndSkyIrradiance(transmittance_texture, irradiance_texture, point, -nd, positional.sunDirection, sky_irradiance);
 #ifdef ATMOSHPERE_RADIANCE
     sky_irradiance *= SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
     sun_irradiance *= SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
@@ -514,7 +480,6 @@ void main()
 
 	vec3 transmittance;
 	vec3 in_scatter = GetSkyRadianceToPoint(scaledViewRay , vd, transmittance);
-    //vec3 in_scatter = GetSkyRadianceToPoint(transmittance_texture, scattering_texture, single_mie_scattering_texture, positional.cameraPos, point, 0.0, positional.sunDirection, transmittance);
 #ifdef ATMOSHPERE_RADIANCE
     in_scatter *= SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
 #endif

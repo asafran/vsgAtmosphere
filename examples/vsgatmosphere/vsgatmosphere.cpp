@@ -118,6 +118,13 @@ int main(int argc, char** argv)
         loadData(std::string(atmosphere::pbrFragShader), options);
         loadData(std::string(atmosphere::pbrVertShader), options);
 
+        loadData(std::string(atmosphere::transmittanceShader), options);
+        loadData(std::string(atmosphere::directIrradianceShader), options);
+        loadData(std::string(atmosphere::singleScatteringShader), options);
+        loadData(std::string(atmosphere::scatteringDensityShader), options);
+        loadData(std::string(atmosphere::indirectIrradianceShader), options);
+        loadData(std::string(atmosphere::multipleScatteringShader), options);
+
         auto vsg_scene = vsg::Group::create();
 
         auto ellipsoidModel = vsg::EllipsoidModel::create(vsg::WGS_84_RADIUS_EQUATOR, vsg::WGS_84_RADIUS_EQUATOR);

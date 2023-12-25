@@ -27,6 +27,8 @@ namespace atmosphere {
         uint32_t cubeSize = 1024;
         int numViewerThreads = 32;
 
+        double exposureModifier = 1e-6;
+
         double lengthUnitInMeters = 1000.0;
 
         vsg::ref_ptr<vsg::ShaderSet> skyShaderSet;
