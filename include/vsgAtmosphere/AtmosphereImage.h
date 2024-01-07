@@ -24,9 +24,7 @@ class Image : public vsg::Inherit<vsg::Object, Image>
         vsg::ref_ptr<vsg::ImageInfo> imageInfo;
         vsg::ref_ptr<vsg::Data> data;
 
-        vsg::ref_ptr<vsg::ImageMemoryBarrier> writeBarrier();
         vsg::ref_ptr<vsg::ImageMemoryBarrier> transitionWriteBarrier();
-        vsg::ref_ptr<vsg::ImageMemoryBarrier> transitionReadBarrier();
         vsg::ref_ptr<vsg::ImageMemoryBarrier> transitionOptimalBarrier();
 
         void allocateTexture(vsg::Device *device, bool init = false);
@@ -34,9 +32,7 @@ class Image : public vsg::Inherit<vsg::Object, Image>
         void mapData(vsg::Device *device);
 
     private:
-        vsg::ref_ptr<vsg::ImageMemoryBarrier> _writeBarrier;
-        vsg::ref_ptr<vsg::ImageMemoryBarrier> _transitionWriteBarrier;
-        vsg::ref_ptr<vsg::ImageMemoryBarrier> _transitionReadBarrier;
+        vsg::ref_ptr<vsg::ImageMemoryBarrier> _transitionWrite;
         vsg::ref_ptr<vsg::ImageMemoryBarrier> _transitionOptimal;
 
         vsg::ref_ptr<vsg::Image> _converted;

@@ -17,8 +17,6 @@ namespace atmosphere {
         std::vector<vsg::ref_ptr<Image>> readImages;
         std::vector<vsg::ref_ptr<Image>> writeImages;
 
-        vsg::ref_ptr<vsg::PipelineBarrier> barrier;
-
         int32_t numThreads = 32;
 
         vsg::ref_ptr<ComputeParametersBinding> parameters;

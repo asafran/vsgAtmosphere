@@ -283,25 +283,11 @@ private:
     unsigned int scatteringHeight() const { return _settings->scaterringMU; }
     unsigned int scatteringDepth() const { return _settings->scaterringR; }
 
-    vsg::ref_ptr<vsg::Commands> bindTask(const std::string &shader, int x, int y, int z, vsg::ref_ptr<vsg::DescriptorSet> parametersSet, vsg::ref_ptr<vsg::DescriptorSet> texturesSet, const vsg::PushConstantRanges &pc);
-
-    vsg::ref_ptr<vsg::BindComputePipeline> bindCompute(const std::string &key, vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout) const;
     vsg::ref_ptr<vsg::ShaderStage> createComputeShader(const std::string &key) const;
-    vsg::ref_ptr<vsg::DescriptorSet> bindTransmittance() const;
-    vsg::ref_ptr<vsg::DescriptorSet> bindDirectIrradiance() const;
-    vsg::ref_ptr<vsg::DescriptorSet> bindSingleScattering() const;
-
-    vsg::ref_ptr<vsg::DescriptorSet> bindScatteringDensity() const;
-    vsg::ref_ptr<vsg::DescriptorSet> bindIndirectIrradiance() const;
-    vsg::ref_ptr<vsg::DescriptorSet> bindMultipleScattering() const;
 
     Parameters computeParameters(const vsg::vec3 &lambdas) const;
 
-    vsg::ref_ptr<vsg::DescriptorSetLayout> getOrCreateParametersLayout();
-
     void assignRenderConstants();
-
-    friend class AtmosphereLighting;
 };
 
 template<typename T, typename O>

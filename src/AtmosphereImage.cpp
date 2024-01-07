@@ -66,44 +66,23 @@ namespace atmosphere {
 
     vsg::ref_ptr<vsg::ImageMemoryBarrier> Image::transitionWriteBarrier()
     {
-        if(!_transitionWriteBarrier)
+        if(!_transitionWrite)
         {
-            _transitionWriteBarrier = vsg::ImageMemoryBarrier::create();
-            _transitionWriteBarrier->srcAccessMask = 0;
-            _transitionWriteBarrier->dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-            _transitionWriteBarrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            _transitionWriteBarrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
-            _transitionWriteBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            _transitionWriteBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            _transitionWriteBarrier->image = imageInfo->imageView->image;
-            _transitionWriteBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            _transitionWriteBarrier->subresourceRange.baseArrayLayer = 0;
-            _transitionWriteBarrier->subresourceRange.layerCount = 1;
-            _transitionWriteBarrier->subresourceRange.levelCount = 1;
-            _transitionWriteBarrier->subresourceRange.baseMipLevel = 0;
+            _transitionWrite = vsg::ImageMemoryBarrier::create();
+            _transitionWrite->srcAccessMask = 0;
+            _transitionWrite->dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT;
+            _transitionWrite->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            _transitionWrite->newLayout = VK_IMAGE_LAYOUT_GENERAL;
+            _transitionWrite->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            _transitionWrite->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            _transitionWrite->image = imageInfo->imageView->image;
+            _transitionWrite->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            _transitionWrite->subresourceRange.baseArrayLayer = 0;
+            _transitionWrite->subresourceRange.layerCount = 1;
+            _transitionWrite->subresourceRange.levelCount = 1;
+            _transitionWrite->subresourceRange.baseMipLevel = 0;
         }
-        return _transitionWriteBarrier;
-    }
-
-    vsg::ref_ptr<vsg::ImageMemoryBarrier> Image::transitionReadBarrier()
-    {
-        if(!_transitionReadBarrier)
-        {
-            _transitionReadBarrier = vsg::ImageMemoryBarrier::create();
-            _transitionReadBarrier->srcAccessMask = 0;
-            _transitionReadBarrier->dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-            _transitionReadBarrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            _transitionReadBarrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
-            _transitionReadBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            _transitionReadBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            _transitionReadBarrier->image = imageInfo->imageView->image;
-            _transitionReadBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            _transitionReadBarrier->subresourceRange.baseArrayLayer = 0;
-            _transitionReadBarrier->subresourceRange.layerCount = 1;
-            _transitionReadBarrier->subresourceRange.levelCount = 1;
-            _transitionReadBarrier->subresourceRange.baseMipLevel = 0;
-        }
-        return _transitionReadBarrier;
+        return _transitionWrite;
     }
 
     vsg::ref_ptr<vsg::ImageMemoryBarrier> Image::transitionOptimalBarrier()
@@ -125,27 +104,6 @@ namespace atmosphere {
             _transitionOptimal->subresourceRange.baseMipLevel = 0;
         }
         return _transitionOptimal;
-    }
-
-    vsg::ref_ptr<vsg::ImageMemoryBarrier> Image::writeBarrier()
-    {
-        if(!_writeBarrier)
-        {
-            _writeBarrier = vsg::ImageMemoryBarrier::create();
-            _writeBarrier->srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT ;
-            _writeBarrier->dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            _writeBarrier->oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-            _writeBarrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
-            _writeBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            _writeBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            _writeBarrier->image = imageInfo->imageView->image;
-            _writeBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            _writeBarrier->subresourceRange.baseArrayLayer = 0;
-            _writeBarrier->subresourceRange.layerCount = 1;
-            _writeBarrier->subresourceRange.levelCount = 1;
-            _writeBarrier->subresourceRange.baseMipLevel = 0;
-        }
-        return _writeBarrier;
     }
 
     void Image::allocateTexture(vsg::Device* device, bool init)

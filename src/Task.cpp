@@ -13,17 +13,6 @@ namespace atmosphere {
         if(!_taskCommands)
         {
             _taskCommands = vsg::Commands::create();
-            auto transitionBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0);
-            auto writeBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0);
-
-            for (auto image : readImages)
-                transitionBarrier->add(image->transitionReadBarrier());
-            for (auto image : writeImages)
-                transitionBarrier->add(image->transitionWriteBarrier());
-            for (auto image : writeImages)
-                writeBarrier->add(image->writeBarrier());
-
-            _taskCommands->addChild(transitionBarrier);
 
             vsg::PushConstantRanges orderPc{
                 {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int)}
@@ -44,7 +33,6 @@ namespace atmosphere {
             _taskCommands->addChild(vsg::Dispatch::create(uint32_t(ceil(float(extent.width) / float(numThreads))),
                                                           uint32_t(ceil(float(extent.height) / float(numThreads))),
                                                           uint32_t(ceil(float(extent.depth) / float(numThreads)))));
-            _taskCommands->addChild(writeBarrier);
         }
         return _taskCommands;
     }

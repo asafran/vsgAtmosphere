@@ -32,12 +32,7 @@ void AtmosphereGenerator::copyData()
     _singleMieScatteringTexture->mapData(_device);
 }
 
-/*
-vsg::ref_ptr<Clouds> loadClouds(const vsg::Path &path, vsg::ref_ptr<const vsg::Options> options)
-{
 
-}
-*/
 AtmosphereModelSettings::AtmosphereModelSettings(vsg::ref_ptr<vsg::EllipsoidModel> model)
     : ellipsoidModel(model)
 {
@@ -254,9 +249,22 @@ void AtmosphereGenerator::initialize()
     auto singlePass = vsg::Commands::create();
     auto multipleScattering = vsg::Commands::create();
 
+    auto transitionBarrierCmd = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0);
+    transitionBarrierCmd->add(_transmittanceTexture->transitionWriteBarrier());
+
+    transitionBarrierCmd->add(_irradianceTexture->transitionWriteBarrier());
+    transitionBarrierCmd->add(_deltaIrradianceTexture->transitionWriteBarrier());
+
+    transitionBarrierCmd->add(_deltaRayleighScatteringTexture->transitionWriteBarrier());
+    transitionBarrierCmd->add(_deltaMieScatteringTexture->transitionWriteBarrier());
+    transitionBarrierCmd->add(_scatteringTexture->transitionWriteBarrier());
+    transitionBarrierCmd->add(_singleMieScatteringTexture->transitionWriteBarrier());
+
+    transitionBarrierCmd->add(_deltaScatteringDensityTexture->transitionWriteBarrier());
+    transitionBarrierCmd->add(_deltaMultipleScatteringTexture->transitionWriteBarrier());
+
     auto transmittanceTask = Task::create();
     transmittanceTask->shader = createComputeShader(std::string(transmittanceShader));
-    transmittanceTask->barrier = memoryBarrierCmd;
     transmittanceTask->numThreads = _settings->numThreads;
     transmittanceTask->parameters = parameters;
     transmittanceTask->writeImages = {_transmittanceTexture};
@@ -264,7 +272,6 @@ void AtmosphereGenerator::initialize()
 
     auto directIrradianceTask = Task::create();
     directIrradianceTask->shader = createComputeShader(std::string(directIrradianceShader));
-    directIrradianceTask->barrier = memoryBarrierCmd;
     directIrradianceTask->numThreads = _settings->numThreads;
     directIrradianceTask->parameters = parameters;
     directIrradianceTask->writeImages = {_deltaIrradianceTexture};
@@ -272,7 +279,6 @@ void AtmosphereGenerator::initialize()
 
     auto singleScatteringTask = Task::create();
     singleScatteringTask->shader = createComputeShader(std::string(singleScatteringShader));
-    singleScatteringTask->barrier = memoryBarrierCmd;
     singleScatteringTask->numThreads = _settings->numThreads;
     singleScatteringTask->parameters = parameters;
     singleScatteringTask->writeImages = {_deltaRayleighScatteringTexture, _deltaMieScatteringTexture, _scatteringTexture, _singleMieScatteringTexture};
@@ -280,7 +286,6 @@ void AtmosphereGenerator::initialize()
 
     auto scatteringDensityTask = Task::create();
     scatteringDensityTask->shader = createComputeShader(std::string(scatteringDensityShader));
-    scatteringDensityTask->barrier = memoryBarrierCmd;
     scatteringDensityTask->numThreads = _settings->numThreads;
     scatteringDensityTask->parameters = parameters;
     scatteringDensityTask->writeImages = {_deltaScatteringDensityTexture};
@@ -292,7 +297,6 @@ void AtmosphereGenerator::initialize()
 
     auto indirectIrradianceTask = Task::create();
     indirectIrradianceTask->shader = createComputeShader(std::string(indirectIrradianceShader));
-    indirectIrradianceTask->barrier = memoryBarrierCmd;
     indirectIrradianceTask->numThreads = _settings->numThreads;
     indirectIrradianceTask->parameters = parameters;
     indirectIrradianceTask->writeImages = {_deltaIrradianceTexture, _irradianceTexture};
@@ -300,19 +304,24 @@ void AtmosphereGenerator::initialize()
 
     auto multipleScatteringTask = Task::create();
     multipleScatteringTask->shader = createComputeShader(std::string(multipleScatteringShader));
-    multipleScatteringTask->barrier = memoryBarrierCmd;
     multipleScatteringTask->numThreads = _settings->numThreads;
     multipleScatteringTask->parameters = parameters;
     multipleScatteringTask->writeImages = {_deltaMultipleScatteringTexture, _scatteringTexture};
     multipleScatteringTask->readImages = {_transmittanceTexture, _deltaScatteringDensityTexture};
 
     singlePass->addChild(transmittanceTask->createTaskCommands());
+    singlePass->addChild(memoryBarrierCmd);
     singlePass->addChild(directIrradianceTask->createTaskCommands());
+    singlePass->addChild(memoryBarrierCmd);
     singlePass->addChild(singleScatteringTask->createTaskCommands());
+    singlePass->addChild(memoryBarrierCmd);
 
     multipleScattering->addChild(scatteringDensityTask->createTaskCommands());
+    multipleScattering->addChild(memoryBarrierCmd);
     multipleScattering->addChild(indirectIrradianceTask->createTaskCommands());
+    multipleScattering->addChild(memoryBarrierCmd);
     multipleScattering->addChild(multipleScatteringTask->createTaskCommands());
+    multipleScattering->addChild(memoryBarrierCmd);
 
     for (int o = 2; o <= _settings->scatteringOrders; ++o)
     {
@@ -326,13 +335,17 @@ void AtmosphereGenerator::initialize()
     auto compileTraversal = vsg::CompileTraversal::create(_device);
     auto context = compileTraversal->contexts.front();
 
+    transitionBarrierCmd->accept(*compileTraversal);
     singlePass->accept(*compileTraversal);
 
     int computeQueueFamily = _physicalDevice->getQueueFamily(VK_QUEUE_COMPUTE_BIT);
-
     context->commandPool = vsg::CommandPool::create(_device, computeQueueFamily);
-
     auto computeQueue = _device->getQueue(computeQueueFamily);
+
+    vsg::submitCommandsToQueue(context->commandPool, vsg::Fence::create(_device), 100000000000, computeQueue, [&](vsg::CommandBuffer& commandBuffer) {
+        transitionBarrierCmd->record(commandBuffer);
+    });
+
     if(_settings->radiance)
     {
         int num_iterations = (_settings->precomputedWavelenghts + 2) / 3;
@@ -456,41 +469,6 @@ void AtmosphereGenerator::generateTextures()
     _deltaMultipleScatteringTexture->allocateTexture(_device);
 }
 
-vsg::ref_ptr<vsg::Commands> AtmosphereGenerator::bindTask(const std::string &shader, int x, int y, int z, vsg::ref_ptr<vsg::DescriptorSet> parametersSet, vsg::ref_ptr<vsg::DescriptorSet> texturesSet, const vsg::PushConstantRanges &pc)
-{
-    auto commands = vsg::Commands::create();
-    auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{texturesSet->setLayout, _parametersLayout}, pc);
-    auto bindPipeline = bindCompute(shader, pipelineLayout);
-    auto bindTextures = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, texturesSet);
-    auto bindParameters = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, parametersSet);
-    commands->addChild(bindPipeline);
-    commands->addChild(bindTextures);
-    commands->addChild(bindParameters);
-    commands->addChild(vsg::Dispatch::create(uint32_t(ceil(float(x) / float(_settings->numThreads))),
-                                             uint32_t(ceil(float(y) / float(_settings->numThreads))),
-                                             uint32_t(ceil(float(z) / float(_settings->numThreads)))));
-    return commands;
-}
-
-vsg::ref_ptr<vsg::BindComputePipeline> AtmosphereGenerator::bindCompute(const std::string& key, vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout) const
-{
-    auto shaderModule = _options->getRefObject<vsg::ShaderModule>(key);
-    auto computeStage = vsg::ShaderStage::create(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderModule);
-    if (!computeStage)
-    {
-        vsg::error("Could not find shader:", key);
-        return {};
-    }
-
-    computeStage->module->hints = compileSettings;
-    computeStage->specializationConstants = _computeConstants;
-
-    // set up the compute pipeline
-    auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeStage);
-
-    return vsg::BindComputePipeline::create(pipeline);
-}
-
 vsg::ref_ptr<vsg::ShaderStage> AtmosphereGenerator::createComputeShader(const std::string &key) const
 {
     auto shaderModule = _options->getRefObject<vsg::ShaderModule>(key);
@@ -506,150 +484,6 @@ vsg::ref_ptr<vsg::ShaderStage> AtmosphereGenerator::createComputeShader(const st
     return computeStage;
 }
 
-vsg::ref_ptr<vsg::DescriptorSet> AtmosphereGenerator::bindTransmittance() const
-{
-    // set up DescriptorSetLayout, DecriptorSet and BindDescriptorSets
-    vsg::DescriptorSetLayoutBindings descriptorBindings{{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}};
-    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-
-    auto writeTexture = vsg::DescriptorImage::create(_transmittanceTexture->imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-
-    vsg::Descriptors descriptors{writeTexture};
-    return vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
-}
-
-vsg::ref_ptr<vsg::DescriptorSet> AtmosphereGenerator::bindDirectIrradiance() const
-{
-    // set up DescriptorSetLayout, DecriptorSet and BindDescriptorSets
-    vsg::DescriptorSetLayoutBindings descriptorBindings{
-                                                        {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-                                                        {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}};
-    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-
-    auto deltaTexture = vsg::DescriptorImage::create(_deltaIrradianceTexture->imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-
-    auto transmittanceTexture = vsg::DescriptorImage::create(_transmittanceTexture->imageInfo, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-    vsg::Descriptors descriptors{deltaTexture, transmittanceTexture};
-    return vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
-}
-
-vsg::ref_ptr<vsg::DescriptorSet> AtmosphereGenerator::bindSingleScattering() const
-{
-    // set up DescriptorSetLayout, DecriptorSet and BindDescriptorSets
-    vsg::DescriptorSetLayoutBindings descriptorBindings{
-                                                        {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-                                                        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-                                                        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-                                                        {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-                                                        {4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}};
-    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-
-    auto rayTexture = vsg::DescriptorImage::create(_deltaRayleighScatteringTexture->imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-    auto mieTexture = vsg::DescriptorImage::create(_deltaMieScatteringTexture->imageInfo, 1, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-    auto readTexture = vsg::DescriptorImage::create(_scatteringTexture->imageInfo, 2, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-    auto writeTexture = vsg::DescriptorImage::create(_singleMieScatteringTexture->imageInfo, 3, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-
-    auto transmittanceTexture = vsg::DescriptorImage::create(_transmittanceTexture->imageInfo, 4, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-    vsg::Descriptors descriptors{rayTexture, mieTexture, readTexture, writeTexture, transmittanceTexture};
-    return vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
-}
-
-vsg::ref_ptr<vsg::DescriptorSet> AtmosphereGenerator::bindScatteringDensity() const
-{
-    // set up DescriptorSetLayout, DecriptorSet and BindDescriptorSets
-    vsg::DescriptorSetLayoutBindings descriptorBindings{
-        {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}
-    };
-    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-
-    auto scatteringTexture = vsg::DescriptorImage::create(_deltaScatteringDensityTexture->imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-
-    auto transmittanceTexture = vsg::DescriptorImage::create(_transmittanceTexture->imageInfo, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto rayTexture = vsg::DescriptorImage::create(_deltaRayleighScatteringTexture->imageInfo, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto mieTexture = vsg::DescriptorImage::create(_deltaMieScatteringTexture->imageInfo, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto multipleTexture = vsg::DescriptorImage::create(_deltaMultipleScatteringTexture->imageInfo, 4, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto irradianceTexture = vsg::DescriptorImage::create(_deltaIrradianceTexture->imageInfo, 5, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-    vsg::Descriptors descriptors{scatteringTexture, transmittanceTexture, rayTexture, mieTexture, multipleTexture, irradianceTexture};
-    return vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
-}
-
-vsg::ref_ptr<vsg::DescriptorSet> AtmosphereGenerator::bindIndirectIrradiance() const
-{
-    // set up DescriptorSetLayout, DecriptorSet and BindDescriptorSets
-    vsg::DescriptorSetLayoutBindings descriptorBindings{
-                                                        {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-                                                        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-                                                        {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-                                                        {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-                                                        {4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-                                                        };
-    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-
-    auto deltaIrradianceTexture = vsg::DescriptorImage::create(_deltaIrradianceTexture->imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-    auto irradianceTexture = vsg::DescriptorImage::create(_irradianceTexture->imageInfo, 1, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-
-    auto singleTexture = vsg::DescriptorImage::create(_deltaRayleighScatteringTexture->imageInfo, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto mieTexture = vsg::DescriptorImage::create(_deltaMieScatteringTexture->imageInfo, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto multipleTexture = vsg::DescriptorImage::create(_deltaMultipleScatteringTexture->imageInfo, 4, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-    //auto orderValueBuffer = vsg::DescriptorBuffer::create(orderValue, 6);
-
-    vsg::Descriptors descriptors{deltaIrradianceTexture, irradianceTexture, singleTexture,
-                                 mieTexture, multipleTexture};
-    return vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
-}
-
-vsg::ref_ptr<vsg::DescriptorSet> AtmosphereGenerator::bindMultipleScattering() const
-{
-    // set up DescriptorSetLayout, DecriptorSet and BindDescriptorSets
-    vsg::DescriptorSetLayoutBindings descriptorBindings{
-        {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}
-    };
-    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-
-
-    auto deltaMultipleTexture = vsg::DescriptorImage::create(_deltaMultipleScatteringTexture->imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-    auto scatteringTexture = vsg::DescriptorImage::create(_scatteringTexture->imageInfo, 1, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-
-    auto transmittanceTexture = vsg::DescriptorImage::create(_transmittanceTexture->imageInfo, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto deltaDensityTexture = vsg::DescriptorImage::create(_deltaScatteringDensityTexture->imageInfo, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-    vsg::Descriptors descriptors{deltaMultipleTexture, scatteringTexture, transmittanceTexture, deltaDensityTexture};
-    return vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
-}
-
-vsg::ref_ptr<vsg::DescriptorSetLayout> AtmosphereGenerator::getOrCreateParametersLayout()
-{
-    if(!_parametersLayout)
-    {
-        vsg::DescriptorSetLayoutBindings descriptorBindings{
-            {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-            {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-            {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        };
-        _parametersLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-    }
-    return _parametersLayout;
-}
-/*
-vsg::ref_ptr<vsg::DescriptorSetLayout> AtmosphereGenerator::orderLayout() const
-{
-    // set up DescriptorSetLayout, DecriptorSet and BindDescriptorSets
-    vsg::DescriptorSetLayoutBindings descriptorBindings{{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}};
-    return vsg::DescriptorSetLayout::create(descriptorBindings);
-}
-*/
 Parameters AtmosphereGenerator::computeParameters(const vsg::vec3 &lambdas) const
 {
     Parameters p;
