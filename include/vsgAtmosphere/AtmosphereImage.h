@@ -1,6 +1,7 @@
 #ifndef ATMOSPHEREIMAGE_H
 #define ATMOSPHEREIMAGE_H
 
+#include "vsg/commands/PipelineBarrier.h"
 #include <vsg/commands/CopyImage.h>
 #include <vsg/state/DescriptorSetLayout.h>
 #include <vsg/state/ImageInfo.h>
@@ -23,11 +24,21 @@ class Image : public vsg::Inherit<vsg::Object, Image>
         vsg::ref_ptr<vsg::ImageInfo> imageInfo;
         vsg::ref_ptr<vsg::Data> data;
 
+        vsg::ref_ptr<vsg::ImageMemoryBarrier> writeBarrier();
+        vsg::ref_ptr<vsg::ImageMemoryBarrier> transitionWriteBarrier();
+        vsg::ref_ptr<vsg::ImageMemoryBarrier> transitionReadBarrier();
+        vsg::ref_ptr<vsg::ImageMemoryBarrier> transitionOptimalBarrier();
+
         void allocateTexture(vsg::Device *device, bool init = false);
         vsg::ref_ptr<vsg::CopyImage> copyData(vsg::Device *device);
         void mapData(vsg::Device *device);
 
     private:
+        vsg::ref_ptr<vsg::ImageMemoryBarrier> _writeBarrier;
+        vsg::ref_ptr<vsg::ImageMemoryBarrier> _transitionWriteBarrier;
+        vsg::ref_ptr<vsg::ImageMemoryBarrier> _transitionReadBarrier;
+        vsg::ref_ptr<vsg::ImageMemoryBarrier> _transitionOptimal;
+
         vsg::ref_ptr<vsg::Image> _converted;
     };
 

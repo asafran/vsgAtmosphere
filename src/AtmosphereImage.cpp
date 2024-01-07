@@ -64,6 +64,90 @@ namespace atmosphere {
         output.writeObject("data", data);
     }
 
+    vsg::ref_ptr<vsg::ImageMemoryBarrier> Image::transitionWriteBarrier()
+    {
+        if(!_transitionWriteBarrier)
+        {
+            _transitionWriteBarrier = vsg::ImageMemoryBarrier::create();
+            _transitionWriteBarrier->srcAccessMask = 0;
+            _transitionWriteBarrier->dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+            _transitionWriteBarrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            _transitionWriteBarrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
+            _transitionWriteBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            _transitionWriteBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            _transitionWriteBarrier->image = imageInfo->imageView->image;
+            _transitionWriteBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            _transitionWriteBarrier->subresourceRange.baseArrayLayer = 0;
+            _transitionWriteBarrier->subresourceRange.layerCount = 1;
+            _transitionWriteBarrier->subresourceRange.levelCount = 1;
+            _transitionWriteBarrier->subresourceRange.baseMipLevel = 0;
+        }
+        return _transitionWriteBarrier;
+    }
+
+    vsg::ref_ptr<vsg::ImageMemoryBarrier> Image::transitionReadBarrier()
+    {
+        if(!_transitionReadBarrier)
+        {
+            _transitionReadBarrier = vsg::ImageMemoryBarrier::create();
+            _transitionReadBarrier->srcAccessMask = 0;
+            _transitionReadBarrier->dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+            _transitionReadBarrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            _transitionReadBarrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
+            _transitionReadBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            _transitionReadBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            _transitionReadBarrier->image = imageInfo->imageView->image;
+            _transitionReadBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            _transitionReadBarrier->subresourceRange.baseArrayLayer = 0;
+            _transitionReadBarrier->subresourceRange.layerCount = 1;
+            _transitionReadBarrier->subresourceRange.levelCount = 1;
+            _transitionReadBarrier->subresourceRange.baseMipLevel = 0;
+        }
+        return _transitionReadBarrier;
+    }
+
+    vsg::ref_ptr<vsg::ImageMemoryBarrier> Image::transitionOptimalBarrier()
+    {
+        if(!_transitionOptimal)
+        {
+            _transitionOptimal = vsg::ImageMemoryBarrier::create();
+            _transitionOptimal->srcAccessMask = 0;
+            _transitionOptimal->dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+            _transitionOptimal->oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+            _transitionOptimal->newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            _transitionOptimal->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            _transitionOptimal->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            _transitionOptimal->image = imageInfo->imageView->image;
+            _transitionOptimal->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            _transitionOptimal->subresourceRange.baseArrayLayer = 0;
+            _transitionOptimal->subresourceRange.layerCount = 1;
+            _transitionOptimal->subresourceRange.levelCount = 1;
+            _transitionOptimal->subresourceRange.baseMipLevel = 0;
+        }
+        return _transitionOptimal;
+    }
+
+    vsg::ref_ptr<vsg::ImageMemoryBarrier> Image::writeBarrier()
+    {
+        if(!_writeBarrier)
+        {
+            _writeBarrier = vsg::ImageMemoryBarrier::create();
+            _writeBarrier->srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT ;
+            _writeBarrier->dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            _writeBarrier->oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+            _writeBarrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
+            _writeBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            _writeBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            _writeBarrier->image = imageInfo->imageView->image;
+            _writeBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            _writeBarrier->subresourceRange.baseArrayLayer = 0;
+            _writeBarrier->subresourceRange.layerCount = 1;
+            _writeBarrier->subresourceRange.levelCount = 1;
+            _writeBarrier->subresourceRange.baseMipLevel = 0;
+        }
+        return _writeBarrier;
+    }
+
     void Image::allocateTexture(vsg::Device* device, bool init)
     {
         auto &image = imageInfo->imageView->image;

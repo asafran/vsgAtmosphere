@@ -22,10 +22,6 @@ layout (set = 0, binding = 1, rgba32f) uniform image2D irradiance;
 // ------------------------------------------------------------------
 
 //uniform vec4 blend;
-layout (set = 2, binding = 0) uniform ScatteringOrder
-{
-    int scattering_order;
-};
 
 layout (set = 0, binding = 2) uniform sampler3D single_rayleigh_scattering;
 layout (set = 0, binding = 3) uniform sampler3D single_mie_scattering;

@@ -22,10 +22,6 @@ layout (set = 0, binding = 0, rgba32f) uniform image3D delta_scattering_density;
 
 //uniform vec4 blend;
 //uniform int layer;
-layout (set = 2, binding = 0) uniform ScatteringOrder
-{
-    int scattering_order;
-};
 
 layout (set = 0, binding = 1) uniform sampler2D transmittance;
 layout (set = 0, binding = 2) uniform sampler3D single_rayleigh_scattering;

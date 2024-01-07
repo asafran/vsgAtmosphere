@@ -1,5 +1,5 @@
-#ifndef ATMOSHPERECONSTATNTS_H
-#define ATMOSHPERECONSTATNTS_H
+#ifndef ATMOSHPERECONSTANTS_H
+#define ATMOSHPERECONSTANTS_H
 
 #include <string_view>
 namespace atmosphere {
@@ -137,9 +137,13 @@ constexpr double XYZ_TO_SRGB[9] = {
 
     constexpr int VIEW_DESCRIPTOR_SET = 1;
     constexpr int MATERIAL_DESCRIPTOR_SET = 0;
-    constexpr int ATMOSHPERE_DESCRIPTOR_SET = VIEW_DESCRIPTOR_SET + 1;
-    constexpr int POSITIONAL_DESCRIPTOR_SET = ATMOSHPERE_DESCRIPTOR_SET + 1;
-    constexpr int CLOUDS_DESCRIPTOR_SET = POSITIONAL_DESCRIPTOR_SET + 1;
+    constexpr int ATMOSHPERE_DESCRIPTOR_SET = 2;
+    constexpr int POSITIONAL_DESCRIPTOR_SET = 3;
+    constexpr int CLOUDS_DESCRIPTOR_SET = 4;
+    constexpr int PBR_DESCRIPTOR_SET = 5;
+
+    constexpr int TEXTURES_DESCRIPTOR_SET = 0;
+    constexpr int PARAMETERS_DESCRIPTOR_SET = 1;
 
 //Paths and filenames
 
@@ -158,6 +162,9 @@ constexpr double XYZ_TO_SRGB[9] = {
     constexpr std::string_view pbrFragShader = "pbr_fs.glsl";
     constexpr std::string_view pbrVertShader = "standard.glsl";
 
+    constexpr std::string_view BRDFlutShader = "compute_BRDF.glsl";
+    constexpr std::string_view prefilterShader = "prefilter.glsl";
+
     constexpr std::string_view transmittanceShader = "compute_transmittance_cs.glsl";
     constexpr std::string_view directIrradianceShader = "compute_direct_irradiance_cs.glsl";
     constexpr std::string_view singleScatteringShader = "compute_single_scattering_cs.glsl";
@@ -166,4 +173,4 @@ constexpr double XYZ_TO_SRGB[9] = {
     constexpr std::string_view multipleScatteringShader = "compute_multiple_scattering_cs.glsl";
 
 }
-#endif // ATMOSHPERECONSTATNTS_H
+#endif // ATMOSHPERECONSTANTS_H

@@ -12,7 +12,7 @@ namespace atmosphere {
     class AtmosphereRuntime : public vsg::Inherit<vsg::Object, AtmosphereRuntime>
     {
     public:
-        explicit AtmosphereRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<CloudsBinding> clouds = {});
+        explicit AtmosphereRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<BRDFBinding> pbr, vsg::ref_ptr<CloudsBinding> clouds = {});
         AtmosphereRuntime();
 
         int compare(const Object& rhs) const override;
@@ -20,11 +20,10 @@ namespace atmosphere {
         void read(vsg::Input& input) override;
         void write(vsg::Output& output) const override;
 
-        bool createPhongShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts, bool radiance);
-        bool createPBRShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts, bool radiance);
-        bool createSkyShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts, bool radiance);
+        bool createPhongShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts);
+        bool createPBRShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts);
+        bool createSkyShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts);
 
-        uint32_t cubeSize = 1024;
         int numViewerThreads = 32;
 
         double exposureModifier = 1e-6;
@@ -39,6 +38,7 @@ namespace atmosphere {
 
         vsg::ref_ptr<AtmosphereBinding> atmosphereBinding;
         vsg::ref_ptr<CloudsBinding> cloudsBinding;
+        vsg::ref_ptr<BRDFBinding> pbrBinding;
 
         vsg::ref_ptr<PositionalBinding> positionalBinding;
         vsg::ref_ptr<PositionalBinding> inversePositionalBinding;
@@ -49,7 +49,7 @@ namespace atmosphere {
 
         void setDate(tm time);
 
-        vsg::ref_ptr<vsg::CommandGraph> createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::vec4Value> camera);
+        vsg::ref_ptr<vsg::CommandGraph> createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Options> options);
         vsg::ref_ptr<vsg::View> createSkyView(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Camera> camera);
         vsg::ref_ptr<vsg::Node> createSky(bool viewerInSpace = false);
     };

@@ -1,5 +1,5 @@
-#ifndef CLOUDS_H
-#define CLOUDS_H
+#ifndef BRDF_H
+#define BRDF_H
 
 #include "Atmosphere.h"
 #include "AtmosphereBinding.h"
@@ -11,11 +11,10 @@
 
 namespace atmosphere {
 
-
-    class CloudsGenerator : public vsg::Inherit<vsg::Object, CloudsGenerator>
+    class BRDFGenerator : public vsg::Inherit<vsg::Object, BRDFGenerator>
     {
     public:
-        CloudsGenerator(vsg::ref_ptr<vsg::Device> device,
+        BRDFGenerator(vsg::ref_ptr<vsg::Device> device,
                         vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice,
                         vsg::ref_ptr<AtmosphereModelSettings> settings,
                         vsg::ref_ptr<vsg::Options> options);
@@ -23,7 +22,7 @@ namespace atmosphere {
         void initialize();
         void copyData();
 
-        vsg::ref_ptr<CloudsBinding> loadData();
+        vsg::ref_ptr<BRDFBinding> loadData();
 
     private:
         vsg::ref_ptr<vsg::Device> _device;
@@ -31,13 +30,10 @@ namespace atmosphere {
 
         vsg::ref_ptr<AtmosphereModelSettings> _settings;
 
-        vsg::ref_ptr<vsg::ShaderStage> _shapeShader;
-        vsg::ref_ptr<vsg::ShaderStage> _detailShader;
+        vsg::ref_ptr<vsg::ShaderStage> _lutShader;
 
-        vsg::ref_ptr<Image> _shapeNoiseTexture;
-        vsg::ref_ptr<Image> _detailNoiseTexture;
-        vsg::ref_ptr<Image> _curlNoiseTexture;
-        vsg::ref_ptr<Image> _blueNoiseTexture;
+        vsg::ref_ptr<Image> _BRDFlutTexture;
     };
 }
-#endif // CLOUDS_H
+
+#endif // BRDF_H

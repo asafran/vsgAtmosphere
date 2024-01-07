@@ -26,3 +26,7 @@ layout (std430, set = 1, binding = 2) buffer DensityProfileLayers
 {
     DensityProfileLayer[4] layers;
 };
+
+layout(push_constant) uniform PushConstants {
+    int scattering_order;
+};

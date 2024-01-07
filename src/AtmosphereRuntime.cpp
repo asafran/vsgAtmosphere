@@ -6,9 +6,10 @@
 
 namespace atmosphere {
 
-    AtmosphereRuntime::AtmosphereRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<CloudsBinding> clouds)
+    AtmosphereRuntime::AtmosphereRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<BRDFBinding> pbr, vsg::ref_ptr<CloudsBinding> clouds)
         : atmosphereBinding(atmosphere)
         , cloudsBinding(clouds)
+        , pbrBinding(pbr)
     {
         positionalBinding = PositionalBinding::create();
         inversePositionalBinding = PositionalBinding::create();
@@ -24,7 +25,7 @@ namespace atmosphere {
         return vsg::Object::compare(rhs);
     }
 
-    bool AtmosphereRuntime::createPhongShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts, bool radiance)
+    bool AtmosphereRuntime::createPhongShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts)
     {
         auto vertexModule = options->getRefObject<vsg::ShaderModule>(std::string(phongVertShader));
         auto fragmentModule = options->getRefObject<vsg::ShaderModule>(std::string(phongFragShader));
@@ -75,7 +76,7 @@ namespace atmosphere {
 
         // additional defines
         shaderSet->optionalDefines = {"ATMOSHPERE_RADIANCE", "ATMOSHPERE_VIEWER_IN_SPACE", "ATMOSHPERE_COMBINED_SCATTERING_TEXTURES", "VSG_GREYSACLE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_POINT_SPRITE"};
-        if(radiance)
+        if(atmosphereBinding->radiance)
             shaderSet->defaultShaderHints->defines.insert("ATMOSHPERE_RADIANCE");
 
         shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
@@ -94,7 +95,7 @@ namespace atmosphere {
         return true;
     }
 
-    bool AtmosphereRuntime::createPBRShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts, bool radiance)
+    bool AtmosphereRuntime::createPBRShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts)
     {
         vsg::info("Local pbr_ShaderSet(",options,")");
 
@@ -146,11 +147,14 @@ namespace atmosphere {
 
         shaderSet->addDescriptorBinding("positional", "", POSITIONAL_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
 
+        shaderSet->addDescriptorBinding("BRDFTexture", "", PBR_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+        shaderSet->addDescriptorBinding("specularTexture", "", PBR_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, {});
+
         shaderSet->defaultShaderHints = vsg::ShaderCompileSettings::create();
 
         // additional defines
         shaderSet->optionalDefines = {"ATMOSHPERE_RADIANCE", "ATMOSHPERE_VIEWER_IN_SPACE", "ATMOSHPERE_COMBINED_SCATTERING_TEXTURES", "VSG_GREYSCALE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_WORKFLOW_SPECGLOSS"};
-        if(radiance)
+        if(atmosphereBinding->radiance)
             shaderSet->defaultShaderHints->defines.insert("ATMOSHPERE_RADIANCE");
 
         shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
@@ -163,13 +167,14 @@ namespace atmosphere {
         shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
         shaderSet->customDescriptorSetBindings.push_back(positionalBinding);
         shaderSet->customDescriptorSetBindings.push_back(atmosphereBinding);
+        shaderSet->customDescriptorSetBindings.push_back(pbrBinding);
 
         pbrShaderSet = shaderSet;
 
         return true;
     }
 
-    bool AtmosphereRuntime::createSkyShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts, bool radiance)
+    bool AtmosphereRuntime::createSkyShaderSet(vsg::ref_ptr<vsg::Options> options, const vsg::ShaderStage::SpecializationConstants &constatnts)
     {
         auto vertexModule = options->getRefObject<vsg::ShaderModule>(std::string(skyVertShader));
         auto fragmentModule = options->getRefObject<vsg::ShaderModule>(std::string(skyFragShader));
@@ -198,7 +203,7 @@ namespace atmosphere {
         shaderSet->defaultShaderHints = vsg::ShaderCompileSettings::create();
 
         shaderSet->optionalDefines = {"ATMOSHPERE_RADIANCE", "ATMOSHPERE_VIEWER_IN_SPACE"};
-        if(radiance)
+        if(atmosphereBinding->radiance)
             shaderSet->defaultShaderHints->defines.insert("ATMOSHPERE_RADIANCE");
 
         shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
@@ -215,7 +220,7 @@ namespace atmosphere {
 
     void AtmosphereRuntime::read(vsg::Input &input)
     {
-        input.read("cubeSize", cubeSize);
+        //input.read("cubeSize", cubeSize);
         input.read("numViewerThreads", numViewerThreads);
 
         input.read("lengthUnitInMeters", lengthUnitInMeters);
@@ -246,7 +251,7 @@ namespace atmosphere {
 
     void AtmosphereRuntime::write(vsg::Output &output) const
     {
-        output.write("cubeSize", cubeSize);
+        //output.write("cubeSize", cubeSize);
         output.write("numViewerThreads", numViewerThreads);
 
         output.write("lengthUnitInMeters", lengthUnitInMeters);
@@ -300,46 +305,55 @@ namespace atmosphere {
         sunDirection = direction;
     }
 
-    /*
-    vsg::ref_ptr<vsg::CommandGraph> AtmosphereRuntime::createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::vec4Value> camera)
+
+    vsg::ref_ptr<vsg::CommandGraph> AtmosphereRuntime::createCubeMapGraph(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Options> options)
     {
-        if(!reflectionMap)
-            reflectionMap = createCubemap(cubeSize);
+        auto shaderModule = options->getRefObject<vsg::ShaderModule>(std::string(prefilterShader));
+        if (!shaderModule)
+        {
+            vsg::error("Prefilter cubemap(...) could not find shaders.");
+            return {};
+        }
+        shaderModule->hints = vsg::ShaderCompileSettings::create();
+        if(atmosphereBinding->radiance)
+            shaderModule->hints->defines.insert("ATMOSPHERE_RADIANCE");
+
+        auto size = pbrBinding->prefilteredTexture->imageView->image->extent.width;
+
+        auto shaderStage = vsg::ShaderStage::create(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderModule);
+        shaderStage->specializationConstants.insert_or_assign(1, vsg::intValue::create(numViewerThreads));
+        shaderStage->specializationConstants.insert_or_assign(2, vsg::intValue::create(size));
 
         vsg::DescriptorSetLayoutBindings descriptorBindings{
-            {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-            {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-            {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-            {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-            {4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-            {5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}
+            {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}
         };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
 
         vsg::PushConstantRanges pushConstantRanges{
-            {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vsg::vec4)}
+            //{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(vsg::vec4)}
         };
 
-        auto settingsBuffer = vsg::DescriptorBuffer::create(runtimeSettings, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        auto transmittance = vsg::DescriptorImage::create(transmittanceTexture->imageInfo, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        auto irradiance = vsg::DescriptorImage::create(irradianceTexture->imageInfo, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        auto scattering = vsg::DescriptorImage::create(scatteringTexture->imageInfo, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        auto singleMie = vsg::DescriptorImage::create(singleMieScatteringTexture->imageInfo, 4, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        auto descriptorImage = vsg::DescriptorImage::create(pbrBinding->prefilteredTexture, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-        auto cubemap = vsg::DescriptorImage::create(reflectionMap, 5, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        vsg::DescriptorSetLayouts descriptorSetLayouts{
+            vsg::DescriptorSetLayout::create(),
+            vsg::DescriptorSetLayout::create(),
+            atmosphereBinding->createDescriptorSetLayout(),
+            positionalBinding->createDescriptorSetLayout(),
+            vsg::DescriptorSetLayout::create(),
+            descriptorSetLayout
+        };
+        auto pipelineLayout = vsg::PipelineLayout::create(descriptorSetLayouts, pushConstantRanges);
 
-        auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, pushConstantRanges);
-
-        vsg::Descriptors descriptors{settingsBuffer, transmittance, irradiance, scattering, singleMie, cubemap};
-        auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
+        auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{descriptorImage});
         auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
-
-        auto pushCamera = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, camera);
+        auto bindAtmosphere = atmosphereBinding->createStateCommand(pipelineLayout);
+        auto bindPositional = positionalBinding->createStateCommand(pipelineLayout);
 
         // set up the compute pipeline
-        auto pipeline = vsg::ComputePipeline::create(pipelineLayout, reflectionMapShader);
+        auto pipeline = vsg::ComputePipeline::create(pipelineLayout, shaderStage);
         auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
-
+/*
         auto preCopyBarrier = vsg::ImageMemoryBarrier::create();
         preCopyBarrier->srcAccessMask = 0;
         preCopyBarrier->dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -347,7 +361,7 @@ namespace atmosphere {
         preCopyBarrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
         preCopyBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         preCopyBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        preCopyBarrier->image = reflectionMap->imageView->image;
+        preCopyBarrier->image = pbrBinding->prefilteredTexture->imageView->image;
         preCopyBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         preCopyBarrier->subresourceRange.baseArrayLayer = 0;
         preCopyBarrier->subresourceRange.layerCount = 6;
@@ -363,7 +377,7 @@ namespace atmosphere {
         postCopyBarrier->newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         postCopyBarrier->srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         postCopyBarrier->dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        postCopyBarrier->image = reflectionMap->imageView->image;
+        postCopyBarrier->image = pbrBinding->prefilteredTexture->imageView->image;;
         postCopyBarrier->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         postCopyBarrier->subresourceRange.baseArrayLayer = 0;
         postCopyBarrier->subresourceRange.layerCount = 6;
@@ -371,21 +385,21 @@ namespace atmosphere {
         postCopyBarrier->subresourceRange.baseMipLevel = 0;
 
         auto postCopyBarrierCmd = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, postCopyBarrier);
-
+*/
         int computeQueueFamily = window->getOrCreatePhysicalDevice()->getQueueFamily(VK_QUEUE_COMPUTE_BIT);
         auto compute_commandGraph = vsg::CommandGraph::create(window->getOrCreateDevice(), computeQueueFamily);
 
-        compute_commandGraph->addChild(preCopyBarrierCmd);
+        //compute_commandGraph->addChild(preCopyBarrierCmd);
         compute_commandGraph->addChild(bindPipeline);
+        compute_commandGraph->addChild(bindAtmosphere);
+        compute_commandGraph->addChild(bindPositional);
         compute_commandGraph->addChild(bindDescriptorSet);
-        compute_commandGraph->addChild(pushCamera);
-        auto workgroups = uint32_t(ceil(float(cubeSize) / float(numViewerThreads)));
+        auto workgroups = uint32_t(ceil(float(size) / float(numViewerThreads)));
         compute_commandGraph->addChild(vsg::Dispatch::create(workgroups, workgroups, 6));
-        compute_commandGraph->addChild(postCopyBarrierCmd);
+        //compute_commandGraph->addChild(postCopyBarrierCmd);
 
         return compute_commandGraph;
     }
-    */
 
     vsg::ref_ptr<vsg::Node> AtmosphereRuntime::createSky(bool viewerInSpace)
     {

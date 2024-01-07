@@ -1,16 +1,10 @@
 #include "Clouds.h"
-#include "AtmoshpereConstatnts.h"
-#include "vsg/io/read.h"
+#include "AtmoshpereConstants.h"
 #include <vsg/commands/Commands.h>
 #include <vsg/commands/Dispatch.h>
-#include <vsg/app/CompileTraversal.h>
-#include <vsg/state/BindDescriptorSet.h>
 #include <vsg/state/ComputePipeline.h>
-#include <vsg/state/DescriptorImage.h>
-#include <vsg/state/DescriptorSet.h>
-#include <vsg/state/PipelineLayout.h>
+#include <vsg/app/CompileTraversal.h>
 #include <vsg/vk/SubmitCommands.h>
-#include <vsg/io/Logger.h>
 
 namespace atmosphere {
 
@@ -124,12 +118,5 @@ CloudsGenerator::CloudsGenerator(vsg::ref_ptr<vsg::Device> device,
         cloudsBinding->detailNoiseTexture = _detailNoiseTexture;
 
         return cloudsBinding;
-    }
-
-    vsg::ref_ptr<CloudsBinding> createCloudsData(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<AtmosphereModelSettings> settings)
-    {
-        auto clouds = CloudsGenerator::create(window->getOrCreateDevice(), window->getOrCreatePhysicalDevice(), settings, options);
-        clouds->initialize();
-        return clouds->loadData();
     }
 }

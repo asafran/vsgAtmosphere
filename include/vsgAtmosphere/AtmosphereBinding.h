@@ -1,13 +1,54 @@
 #ifndef ATMOSPHEREBINDING_H
 #define ATMOSPHEREBINDING_H
 
-#include "AtmoshpereConstatnts.h"
+#include "AtmoshpereConstants.h"
 #include "AtmosphereImage.h"
 
 #include <vsg/utils/ShaderSet.h>
 #include <vsg/state/DescriptorSet.h>
 
 namespace atmosphere {
+
+class AtmosphereModelSettings;
+
+struct DensityProfileLayer
+{
+    DensityProfileLayer(double in_width, double in_exp_term, double in_exp_scale, double in_linear_term, double in_constant_term, double lengthUnitInMeters)
+    {
+        width = static_cast<float>(in_width / lengthUnitInMeters);
+        exp_term = static_cast<float>(in_exp_term);
+        exp_scale = static_cast<float>(in_exp_scale * lengthUnitInMeters);
+        linear_term = static_cast<float>(in_linear_term * lengthUnitInMeters);
+        constant_term = static_cast<float>(in_constant_term);
+    }
+
+    DensityProfileLayer() {}
+
+    float width = 0.0f;
+    float exp_term = 0.0f;
+    float exp_scale = 0.0f;
+    float linear_term = 0.0f;
+    float constant_term = 0.0f;
+
+    void read(vsg::Input& input)
+    {
+        input.read("width", width);
+        input.read("exp_term", exp_term);
+        input.read("exp_scale", exp_scale);
+        input.read("linear_term", linear_term);
+        input.read("constant_term", constant_term);
+    }
+
+    void write(vsg::Output& output) const
+    {
+        output.write("width", width);
+        output.write("exp_term", exp_term);
+        output.write("exp_scale", exp_scale);
+        output.write("linear_term", linear_term);
+        output.write("constant_term", constant_term);
+    }
+
+};
 
     struct RuntimeSettings
     {
@@ -40,12 +81,12 @@ namespace atmosphere {
     class PositionalBinding : public vsg::Inherit<vsg::CustomDescriptorSetBinding, PositionalBinding>
     {
     public:
-        PositionalBinding(uint32_t in_set = POSITIONAL_DESCRIPTOR_SET);
+        explicit PositionalBinding(uint32_t in_set = POSITIONAL_DESCRIPTOR_SET);
 
         int compare(const Object& rhs) const override;
 
         vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout;
-        vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
+        vsg::ref_ptr<vsg::DescriptorSet> descriptorSet;
 
         bool compatibleDescriptorSetLayout(const vsg::DescriptorSetLayout& dsl) const override;
         vsg::ref_ptr<vsg::DescriptorSetLayout> createDescriptorSetLayout() override;
@@ -58,7 +99,7 @@ namespace atmosphere {
     class AtmosphereBinding : public vsg::Inherit<vsg::CustomDescriptorSetBinding, AtmosphereBinding>
     {
     public:
-        AtmosphereBinding(uint32_t in_set = ATMOSHPERE_DESCRIPTOR_SET);
+        explicit AtmosphereBinding(uint32_t in_set = ATMOSHPERE_DESCRIPTOR_SET);
 
         int compare(const Object& rhs) const override;
 
@@ -66,7 +107,6 @@ namespace atmosphere {
         void write(vsg::Output& output) const override;
 
         vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout;
-        vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
 
         bool compatibleDescriptorSetLayout(const vsg::DescriptorSetLayout& dsl) const override;
         vsg::ref_ptr<vsg::DescriptorSetLayout> createDescriptorSetLayout() override;
@@ -77,6 +117,8 @@ namespace atmosphere {
         vsg::ref_ptr<Image> irradianceTexture;
         vsg::ref_ptr<Image> scatteringTexture;
         vsg::ref_ptr<Image> singleMieScatteringTexture;
+
+        bool radiance = false;
 
         vsg::ref_ptr<vsg::Value<RuntimeSettings>> settings;
     };
@@ -154,10 +196,43 @@ namespace atmosphere {
         }
     };
 
+    struct Parameters
+    {
+        vsg::vec4 solar_irradiance;
+        vsg::vec4 rayleigh_scattering;
+        vsg::vec4 mie_scattering;
+        vsg::vec4 mie_extinction;
+        vsg::vec4 ground_albedo;
+        vsg::vec4 absorption_extinction;
+    };
+
+    class ComputeParametersBinding : public vsg::Inherit<vsg::Object, ComputeParametersBinding>
+    {
+    public:
+        explicit ComputeParametersBinding(vsg::ref_ptr<AtmosphereModelSettings> settings);
+
+        vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout;
+        vsg::ref_ptr<vsg::DescriptorSet> descriptorSet;
+
+        void computeLuminanceFromRadiance(const vsg::vec3 &lambdas, double dlambda);
+        void resetLuminanceFromRadiance();
+        void setParameters(const Parameters& value);
+
+    private:
+
+        vsg::ref_ptr<vsg::mat4Value> _luminacneFromRadiance;
+        vsg::ref_ptr<vsg::DescriptorBuffer> _luminacneFromRadianceBuffer;
+        vsg::ref_ptr<vsg::Value<Parameters>> _parameters;
+        vsg::ref_ptr<vsg::DescriptorBuffer> _parametersBuffer;
+        vsg::ref_ptr<vsg::Array<DensityProfileLayer>> _profileLayers;
+        vsg::ref_ptr<vsg::DescriptorBuffer> _profileLayersBuffer;
+
+    };
+
     class CloudsBinding : public vsg::Inherit<vsg::CustomDescriptorSetBinding, CloudsBinding>
     {
     public:
-        CloudsBinding(uint32_t in_set = CLOUDS_DESCRIPTOR_SET);
+        explicit CloudsBinding(uint32_t in_set = CLOUDS_DESCRIPTOR_SET);
 
         int compare(const Object& rhs) const override;
 
@@ -165,7 +240,6 @@ namespace atmosphere {
         void write(vsg::Output& output) const override;
 
         vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout;
-        vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
 
         bool compatibleDescriptorSetLayout(const vsg::DescriptorSetLayout& dsl) const override;
         vsg::ref_ptr<vsg::DescriptorSetLayout> createDescriptorSetLayout() override;
@@ -178,6 +252,31 @@ namespace atmosphere {
         vsg::ref_ptr<Image> curlNoiseTexture;
 
         vsg::ref_ptr<vsg::Value<CloudRuntimeSettings>> settings;
+    };
+
+    class BRDFBinding : public vsg::Inherit<vsg::CustomDescriptorSetBinding, BRDFBinding>
+    {
+    public:
+        explicit BRDFBinding(uint32_t in_set = PBR_DESCRIPTOR_SET);
+        BRDFBinding(unsigned int size, unsigned int layers, uint32_t in_set = PBR_DESCRIPTOR_SET);
+
+        int compare(const Object& rhs) const override;
+
+        void read(vsg::Input& input) override;
+        void write(vsg::Output& output) const override;
+
+        vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout;
+
+        bool compatibleDescriptorSetLayout(const vsg::DescriptorSetLayout& dsl) const override;
+        vsg::ref_ptr<vsg::DescriptorSetLayout> createDescriptorSetLayout() override;
+
+        vsg::ref_ptr<vsg::StateCommand> createStateCommand(vsg::ref_ptr<vsg::PipelineLayout> layout) override;
+
+        vsg::ref_ptr<Image> BRDFlutTexture;
+        vsg::ref_ptr<vsg::ImageInfo> prefilteredTexture;
+
+    private:
+        void createCubemap(uint32_t size, uint32_t layers);
     };
 }
 

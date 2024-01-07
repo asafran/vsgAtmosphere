@@ -133,7 +133,6 @@ RadianceSpectrum GetSkyRadiance(IN(Direction) view_ray, IN(Number) nu, OUT(Dimen
 
 void main()
 {
-    // Generate a camera ray to the current fragment.
 	vec3 view_direction = normalize(inRay);
     Number nu = dot(view_direction, positional.sunDirection);
 

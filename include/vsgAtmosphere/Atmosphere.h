@@ -17,45 +17,6 @@ namespace atmosphere {
 class AtmosphereLighting;
 class AtmosphereGenerator;
 
-struct DensityProfileLayer
-{
-    DensityProfileLayer(double in_width, double in_exp_term, double in_exp_scale, double in_linear_term, double in_constant_term, double lengthUnitInMeters)
-    {
-        width = static_cast<float>(in_width / lengthUnitInMeters);
-        exp_term = static_cast<float>(in_exp_term);
-        exp_scale = static_cast<float>(in_exp_scale * lengthUnitInMeters);
-        linear_term = static_cast<float>(in_linear_term * lengthUnitInMeters);
-        constant_term = static_cast<float>(in_constant_term);
-    }
-
-    DensityProfileLayer() {}
-
-    float width = 0.0f;
-    float exp_term = 0.0f;
-    float exp_scale = 0.0f;
-    float linear_term = 0.0f;
-    float constant_term = 0.0f;
-
-    void read(vsg::Input& input)
-    {
-        input.read("width", width);
-        input.read("exp_term", exp_term);
-        input.read("exp_scale", exp_scale);
-        input.read("linear_term", linear_term);
-        input.read("constant_term", constant_term);
-    }
-
-    void write(vsg::Output& output) const
-    {
-        output.write("width", width);
-        output.write("exp_term", exp_term);
-        output.write("exp_scale", exp_scale);
-        output.write("linear_term", linear_term);
-        output.write("constant_term", constant_term);
-    }
-
-};
-
 class AtmosphereModelSettings : public vsg::Inherit<vsg::Object, AtmosphereModelSettings>
 {
 public:
@@ -85,6 +46,11 @@ public:
 
     unsigned int detailNoiseSize = 32;
     unsigned int shapeNoiseSize = 128;
+
+    unsigned int BRDFlutSize = 512;
+    unsigned int BRDFsamples = 1024;
+    unsigned int prefilteredSize = 128;
+    unsigned int prefilteredLayers = 6;
 
     vsg::ref_ptr<vsg::EllipsoidModel> ellipsoidModel;
 
@@ -273,16 +239,6 @@ public:
 
 private:
 
-    struct Parameters
-    {
-        vsg::vec4 solar_irradiance;
-        vsg::vec4 rayleigh_scattering;
-        vsg::vec4 mie_scattering;
-        vsg::vec4 mie_extinction;
-        vsg::vec4 ground_albedo;
-        vsg::vec4 absorption_extinction;
-    };
-
     vsg::ref_ptr<AtmosphereModelSettings> _settings;
 
     vsg::ref_ptr<Image> _transmittanceTexture;
@@ -305,6 +261,8 @@ private:
     vsg::ShaderStage::SpecializationConstants _computeConstants;
     vsg::ShaderStage::SpecializationConstants _renderConstants;
 
+    vsg::ref_ptr<vsg::DescriptorSetLayout> _parametersLayout;
+
 public:
     AtmosphereGenerator(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options);
     AtmosphereGenerator(vsg::ref_ptr<vsg::Device> device, vsg::ref_ptr<vsg::PhysicalDevice> physicalDevice, vsg::ref_ptr<vsg::Options> options);
@@ -316,7 +274,7 @@ public:
     vsg::vec3 convertSpectrumToLinearSrgb(double c);
 
     vsg::ref_ptr<AtmosphereBinding> loadData();
-    vsg::ref_ptr<AtmosphereRuntime> createRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<CloudsBinding> clouds = {});
+    vsg::ref_ptr<AtmosphereRuntime> createRuntime(vsg::ref_ptr<AtmosphereBinding> atmosphere, vsg::ref_ptr<BRDFBinding> pbr, vsg::ref_ptr<CloudsBinding> clouds = {});
 
 private:
     void generateTextures();
@@ -325,7 +283,10 @@ private:
     unsigned int scatteringHeight() const { return _settings->scaterringMU; }
     unsigned int scatteringDepth() const { return _settings->scaterringR; }
 
+    vsg::ref_ptr<vsg::Commands> bindTask(const std::string &shader, int x, int y, int z, vsg::ref_ptr<vsg::DescriptorSet> parametersSet, vsg::ref_ptr<vsg::DescriptorSet> texturesSet, const vsg::PushConstantRanges &pc);
+
     vsg::ref_ptr<vsg::BindComputePipeline> bindCompute(const std::string &key, vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout) const;
+    vsg::ref_ptr<vsg::ShaderStage> createComputeShader(const std::string &key) const;
     vsg::ref_ptr<vsg::DescriptorSet> bindTransmittance() const;
     vsg::ref_ptr<vsg::DescriptorSet> bindDirectIrradiance() const;
     vsg::ref_ptr<vsg::DescriptorSet> bindSingleScattering() const;
@@ -334,15 +295,22 @@ private:
     vsg::ref_ptr<vsg::DescriptorSet> bindIndirectIrradiance() const;
     vsg::ref_ptr<vsg::DescriptorSet> bindMultipleScattering() const;
 
-    void computeParameters(vsg::ref_ptr<vsg::Value<Parameters>> parameters, const vsg::vec3 &lambdas) const;
+    Parameters computeParameters(const vsg::vec3 &lambdas) const;
 
-    vsg::ref_ptr<vsg::DescriptorSetLayout> parametersLayout() const;
-    vsg::ref_ptr<vsg::DescriptorSetLayout> orderLayout() const;
+    vsg::ref_ptr<vsg::DescriptorSetLayout> getOrCreateParametersLayout();
 
     void assignRenderConstants();
 
     friend class AtmosphereLighting;
 };
+
+template<typename T, typename O>
+vsg::ref_ptr<O> createData(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<AtmosphereModelSettings> settings)
+{
+    auto generator = T::create(window->getOrCreateDevice(), window->getOrCreatePhysicalDevice(), settings, options);
+    generator->initialize();
+    return generator->loadData();
+}
 
 extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<vsg::Window> window, vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);
 extern vsg::ref_ptr<AtmosphereGenerator> createAtmosphereGenerator(vsg::ref_ptr<AtmosphereModelSettings> settings, vsg::ref_ptr<vsg::Options> options);

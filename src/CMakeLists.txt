@@ -7,10 +7,12 @@ set(SOURCES
         AtmosphereRuntime.cpp
         AtmosphereImage.cpp
         AtmosphereTrackball.cpp
+        BRDF.cpp
+        Task.cpp
         Clouds.cpp
 )
 set(HEADERS
-        ${HEADER_PATH}/AtmoshpereConstatnts.h
+        ${HEADER_PATH}/AtmoshpereConstants.h
         ${HEADER_PATH}/AtmosphereTools.h
         ${HEADER_PATH}/Atmosphere.h
         ${HEADER_PATH}/AtmosphereLighting.h
@@ -20,6 +22,8 @@ set(HEADERS
         ${HEADER_PATH}/AtmosphereImage.h
         ${HEADER_PATH}/AtmosphereTrackball.h
         ${HEADER_PATH}/Clouds.h
+        ${HEADER_PATH}/BRDF.h
+        ${HEADER_PATH}/Task.h
 )
 
 add_library(vsgAtmosphere ${HEADERS} ${SOURCES})
